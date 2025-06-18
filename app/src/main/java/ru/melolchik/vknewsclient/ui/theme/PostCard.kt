@@ -1,32 +1,31 @@
-# VkNewsClient
+package ru.melolchik.vknewsclient.ui.theme
 
-#2.11 VkNewsClient. Создаем шапку поста
-
-Задаём цвета для темы
-
-
-private val DarkColorScheme = darkColorScheme(
-    primary = Black900,
-    secondary = Black900,
-    tertiary = Pink80,
-    onPrimary = Color.White,
-    onSecondary = Black500,
-    surfaceVariant = Black900
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Color.White,
-    secondary = Color.White,
-    tertiary = Pink40,
-    onPrimary = Black900,
-    onSecondary = Black500,
-    surfaceVariant = Color.White
-
-)
-
-Реализуем верхнее меню для поста VK в отдльном файле
-
-
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import ru.melolchik.vknewsclient.R
 
 
 
@@ -37,13 +36,11 @@ fun PostCard(){
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primary)
         ) {
-		//Строка
         Row(modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
             ){
-			//Первая картинка
             Image(
                 modifier = Modifier
                     .size(50.dp)
@@ -51,9 +48,8 @@ fun PostCard(){
                 painter = painterResource(id = R.drawable.post_comunity_thumbnail),
                 contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-			//Два текста вертикально 
             Column(modifier = Modifier
-                .weight(1f), <------------- параметр к у LinerLayout
+                .weight(1f),
                 verticalArrangement = Arrangement.SpaceEvenly
 
             ) {
@@ -64,7 +60,6 @@ fun PostCard(){
                     color = MaterialTheme.colorScheme.onSecondary)
             }
             Spacer(modifier = Modifier.width(8.dp))
-			// Вместо Image используем Icon чтобы задать цвет tint
             Icon(imageVector = Icons.Rounded.MoreVert,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSecondary)
