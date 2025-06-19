@@ -375,3 +375,40 @@ fun MainScreen(){
 1)Если Composable-функция зависит от какого-то стейта, то при изменении этого стейта, эта Composable-функция будет вызвана снова, произойдёт рекомпозиция
 2) Чтобы стейт сохранился нужно вызывать remember
 3) Изменени значений стейта через value
+
+#3.4 FAB и SnackBar
+
+Добавим FAB. По клику показывается SnackBar. В нём есть кнопка "Hide FAB", по клику по которой FAB становится невидимой
+
+@Composable
+fun MainScreen(){
+    val snackBarHostState = SnackbarHostState() <----------- состояние SnackBar
+    val fabIsVisible = remember { <---------- состояние видимости кнопки FAB
+        mutableStateOf(true)
+    }
+    val scope = rememberCoroutineScope() <--------- Scope для Composable-функций
+    Scaffold (
+        snackbarHost = {
+            SnackbarHost(hostState = snackBarHostState) <--- добавляем SnackBar и передаём State
+        },
+        floatingActionButton = { <-------- добавляем FAB
+            if(fabIsVisible.value) { <--- в случае невидимости просто не добавляем FAB на экран и после рекомпозиции она будет не видна
+                FloatingActionButton(onClick = {
+                    scope.launch {
+                        val action = snackBarHostState.showSnackbar( <---- suspend функция, может возвращать два состояния либо был скрыт, либо нажата кнопка
+                            message = "This is snackBar",
+                            actionLabel = "Hide FAB",
+                            duration = SnackbarDuration.Long
+
+                        )
+                        if (action == SnackbarResult.ActionPerformed) { <--- при нажатии на кнопку меняем стейт видимости FAB
+                            fabIsVisible.value = false
+                        }
+                    }
+
+                }) {
+                    Icon(imageVector = Icons.Filled.Favorite, contentDescription = null)
+                }
+            }
+        },
+        bottomBar = {..............
