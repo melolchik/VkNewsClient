@@ -412,3 +412,24 @@ fun MainScreen(){
             }
         },
         bottomBar = {..............
+	
+##State и работа с ViewModel
+	
+#4.1 Рекомпозиция
+
+Добавим лог
+
+fun MainScreen(){
+    val snackBarHostState = SnackbarHostState()
+
+    log("snackBarHostState = ${snackBarHostState.currentSnackbarData.toString()}")
+    val fabIsVisible = remember {
+        mutableStateOf(true)
+    }
+	...
+В итоге SnackBar не показывается!!!
+Посмотрим изначальный код. У нас есть два состояния snackBarHostState и fabIsVisible и рекомпозиция происходит только у тех Composable-функций, 
+которые зависят от этих состояний при их смене!!!
+Когда мы прописываем log с состояние SnackBar - то MainScreen становится зависим от него и переживает рекомпозицию, при этом SnackbarHostState не переживает рекомпозицию и обнуляется!
+Чтобы это исправить, нужно обновить его в remember
+Поэтому всегда лучше использовать remember для стейтов, чтобы они умели пережить рекомпозицию экрана

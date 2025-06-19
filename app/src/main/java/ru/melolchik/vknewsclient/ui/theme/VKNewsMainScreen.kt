@@ -31,7 +31,11 @@ fun log(text : String){
 }
 @Composable
 fun MainScreen(){
-    val snackBarHostState = SnackbarHostState()
+    val snackBarHostState = remember {
+        SnackbarHostState()
+    }
+
+    log("snackBarHostState = ${snackBarHostState.currentSnackbarData.toString()}")
     val fabIsVisible = remember {
         mutableStateOf(true)
     }
@@ -42,6 +46,7 @@ fun MainScreen(){
         },
         floatingActionButton = {
             if(fabIsVisible.value) {
+
                 FloatingActionButton(onClick = {
                     scope.launch {
                         val action = snackBarHostState.showSnackbar(
