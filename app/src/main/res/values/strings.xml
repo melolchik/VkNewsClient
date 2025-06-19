@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">VkNewsClient</string>
     <string name="temp_text">Lorem Ipsum is simply dummy text of the printing and typesetting industry.</string>
+    <string name="navigation_item_main">Главная</string>
+    <string name="navigation_item_favourite">Избранное</string>
+    <string name="navigation_item_profile">Профиль</string>
 </resources>

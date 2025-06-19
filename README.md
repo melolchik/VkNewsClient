@@ -287,3 +287,91 @@ fun Test(){
     }
 
 }
+
+#3.3 State и рекомпозиция
+
+Создадим главное окно для VKNews c нижним меню навигации
+
+Элементы навигации
+sealed class NavigationItem(
+    val titleResId : Int,
+    val icon: ImageVector
+){
+    object Home : NavigationItem (R.string.navigation_item_main, Icons.Outlined.Home)
+    object Favorite : NavigationItem (R.string.navigation_item_favourite, Icons.Outlined.Favorite)
+    object Profile : NavigationItem (R.string.navigation_item_profile, Icons.Outlined.Person)
+}
+
+@Composable
+fun MainScreen(){
+    Scaffold (
+        bottomBar = {
+            NavigationBar {
+                var selectedItemPosition = 0 <---- отмеченный элемент
+                val items = listOf(NavigationItem.Home,NavigationItem.Favorite,NavigationItem.Profile)
+                items.forEachIndexed { index, item ->
+                    NavigationBarItem(
+                        selected = selectedItemPosition == index, <---- делаем отмеченным 0 элемент
+						onClick = { selectedItemPosition = index }, <--- если мы так делаем выбранный элемент НЕ ИЗМЕНИТСЯ! т.к. перерисовка NavigationBar не происходит
+                        icon = {
+                        Icon(imageVector = item.icon, contentDescription = null)
+                        },
+                        label = {
+                            Text(text = stringResource(id = item.titleResId))
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSecondary,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSecondary)
+                    )
+                }
+            }
+        }
+    ){
+        Text(text = "Text", modifier = Modifier.padding(it))
+    }
+}
+Рекомпозиция - 
+
+@Composable
+fun MainScreen(){
+    Scaffold (
+        bottomBar = {
+            NavigationBar {
+                log("NavigationBar")
+                val selectedItemPosition = mutableStateOf(0) <---- заменяем на state. Для сохранения состояния используем remember
+                val items = listOf(NavigationItem.Home,NavigationItem.Favorite,NavigationItem.Profile)
+                items.forEachIndexed { index, item ->
+                    NavigationBarItem(
+                        selected = selectedItemPosition.value == index, <---- похоже на LiveData, кладём новое значение, 
+                        onClick = { selectedItemPosition.value = index }, <----- кладём новое значение и происходит Рекомпозиция,но State равен 0 всегда, состояние не запоминается
+                        icon = {
+                        Icon(imageVector = item.icon, contentDescription = null)
+                        },
+                        label = {
+                            Text(text = stringResource(id = item.titleResId))
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSecondary,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSecondary)
+                    )
+                }
+            }
+        }
+    ){
+        Text(text = "Text", modifier = Modifier.padding(it))
+    }
+}
+
+---------------
+Запоминаем состояние
+ val selectedItemPosition = remember {
+                    mutableIntStateOf(0)
+                }
+				
+1)Если Composable-функция зависит от какого-то стейта, то при изменении этого стейта, эта Composable-функция будет вызвана снова, произойдёт рекомпозиция
+2) Чтобы стейт сохранился нужно вызывать remember
+3) Изменени значений стейта через value

@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import ru.melolchik.vknewsclient.ui.theme.MainScreen
 import ru.melolchik.vknewsclient.ui.theme.PostCard
 import ru.melolchik.vknewsclient.ui.theme.VkNewsClientTheme
 
@@ -49,18 +50,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            Test()
+            VkNewsClientTheme {
+                MainScreen()
 
-//            VkNewsClientTheme {
-//                Box(modifier = Modifier.background(color = MaterialTheme.colorScheme.background)
-//                    .fillMaxSize()
-//                    .padding(8.dp)
-//                ){
-//                    PostCard()
-//                }
-//
-//
-//            }
+            }
         }
     }
 
