@@ -175,3 +175,40 @@ private fun PostHeader(){
             tint = MaterialTheme.colorScheme.onSecondary)
     }
 }
+
+##Material Components
+
+#3.1 Введение в Material Components
+
+Slot API - гибкая настройка Composable-функций
+1) У Button нет атрибута text,но можно добавить любое кол-во элементов Text
+2) modifier.weight()
+ Если сделать так
+  setContent {
+            Text(text = "Text", modifier = Modifier.weight(1f))
+			}
+то weight будет не доступна
+
+А так доступна, т.к. отностися к ColumnScope
+
+setContent {
+          Column { <--- this:ColumnScope
+                Text(text = "Text", modifier = Modifier.weight(1f))
+            }
+	}
+Поэтому если мы хотим использовать weigth в такой функции
+
+    @Composable
+    fun TestText(text : String, count : Int)
+    {
+        repeat(count){
+            Text(text = text)
+        }
+    }
+	
+То нужно писать её как расширение над ColumnScope и вызывать внутри Column
+
+Column {
+            TestText(text = "text", count = 3)
+        }
+Приложение Compose Material Catalog
