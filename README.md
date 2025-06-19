@@ -212,3 +212,78 @@ Column {
             TestText(text = "text", count = 3)
         }
 Приложение Compose Material Catalog
+
+#3.2 Scaffold и BottomNavigation
+
+Scaffold - экрна
+
+@Composable
+fun Scaffold(
+    modifier: Modifier = Modifier,
+    topBar: @Composable () -> Unit = {}, <--- Верхнее меню
+    bottomBar: @Composable () -> Unit = {}, <---- Нижнее меню
+    snackbarHost: @Composable () -> Unit = {},
+    floatingActionButton: @Composable () -> Unit = {},
+    floatingActionButtonPosition: FabPosition = FabPosition.End,
+    containerColor: Color = MaterialTheme.colorScheme.background,
+    contentColor: Color = contentColorFor(containerColor),
+    contentWindowInsets: WindowInsets = ScaffoldDefaults.contentWindowInsets,
+    content: @Composable (PaddingValues) -> Unit
+) ...
+
+//Боковая панель в material3
+@Composable
+fun Test(){
+    ModalNavigationDrawer(drawerContent = {
+        val items = listOf(Icons.Default.Close, Icons.Default.Clear, Icons.Default.Call)
+
+        ModalDrawerSheet {
+            Spacer(Modifier.height(12.dp))
+            items.forEach { item ->
+                NavigationDrawerItem(
+                    selected = false,
+                    icon = { Icon(item, contentDescription = null) },
+                    label = { Text(text = item.name)},
+                    onClick = {}
+                )
+            }
+        }
+    }) {
+        TestScaffold()
+    }
+
+}
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    fun TestScaffold()
+    {
+        Scaffold (
+            topBar = {
+                TopAppBar(title = { Text(text = "Top App Bar") },
+                    navigationIcon = {
+                        IconButton(onClick = { /*TODO*/ }) {
+                            Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = null)
+                        }
+                    })
+            },
+            bottomBar = {
+
+
+                NavigationBar {
+                    repeat(4) {
+                        NavigationBarItem(selected = false, onClick = { /*TODO*/ }, icon = {
+                            Icon(imageVector = Icons.Rounded.Add, contentDescription = null)
+                        })
+                    }
+                }
+            }
+
+
+        ){
+            Text(text = "Scafold content",
+                modifier = Modifier.padding(it))
+        }
+    }
+
+}
