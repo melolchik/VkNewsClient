@@ -25,49 +25,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.launch
+import ru.melolchik.vknewsclient.domain.FeedPost
 
 fun log(text : String){
     Log.d("COMPOSE_TEST", text)
 }
 @Composable
 fun MainScreen(){
-    val snackBarHostState = remember {
-        SnackbarHostState()
-    }
 
-    log("snackBarHostState = ${snackBarHostState.currentSnackbarData.toString()}")
-    val fabIsVisible = remember {
-        mutableStateOf(true)
+    val feedPost = remember {
+        mutableStateOf<FeedPost>( FeedPost())
     }
-    val scope = rememberCoroutineScope()
     Scaffold (
-        snackbarHost = {
-            SnackbarHost(hostState = snackBarHostState)
-        },
-        floatingActionButton = {
-            if(fabIsVisible.value) {
-
-                FloatingActionButton(onClick = {
-                    scope.launch {
-                        val action = snackBarHostState.showSnackbar(
-                            message = "This is snackBar",
-                            actionLabel = "Hide FAB",
-                            duration = SnackbarDuration.Long
-
-                        )
-                        if (action == SnackbarResult.ActionPerformed) {
-                            fabIsVisible.value = false
-                        }
-                    }
-
-                }) {
-                    Icon(imageVector = Icons.Filled.Favorite, contentDescription = null)
-                }
-            }
-        },
         bottomBar = {
             NavigationBar {
-                log("NavigationBar")
+
                 val selectedItemPosition = remember {
                     mutableIntStateOf(0)
                 }
@@ -93,6 +65,23 @@ fun MainScreen(){
         }
 
     ){
-        Text(text = "Text", modifier = Modifier.padding(it))
+        //Text(text = "Text", modifier = Modifier.padding(it))
+        PostCard(modifier = Modifier.padding(it),
+            feedPost = feedPost.value,
+            onStatisticItemClickListener = { newItem ->
+                val oldStatistics = feedPost.value.statistics
+                val newStatistics = oldStatistics.toMutableList().apply {
+                    replaceAll{oldItem ->
+                        if(oldItem.type == newItem.type){
+                            oldItem.copy(count = oldItem.count + 1)
+                        }else{
+                            oldItem
+                        }
+
+                    }
+                }
+                feedPost.value = feedPost.value.copy(statistics = newStatistics.toList())
+            }
+        )
     }
 }

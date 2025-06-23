@@ -433,3 +433,277 @@ fun MainScreen(){
 Когда мы прописываем log с состояние SnackBar - то MainScreen становится зависим от него и переживает рекомпозицию, при этом SnackbarHostState не переживает рекомпозицию и обнуляется!
 Чтобы это исправить, нужно обновить его в remember
 Поэтому всегда лучше использовать remember для стейтов, чтобы они умели пережить рекомпозицию экрана
+
+#4.4 Слушатели клика
+
+В MainScreen удаляем FAB и SnackBar
+
+@Composable
+fun MainScreen(){
+
+    val scope = rememberCoroutineScope()
+    Scaffold (
+        bottomBar = {
+            NavigationBar {
+
+                val selectedItemPosition = remember {
+                    mutableIntStateOf(0)
+                }
+                val items = listOf(NavigationItem.Home,NavigationItem.Favorite,NavigationItem.Profile)
+                items.forEachIndexed { index, item ->
+                    NavigationBarItem(
+                        selected = selectedItemPosition.value == index,
+                        onClick = { selectedItemPosition.value = index },
+                        icon = {
+                        Icon(imageVector = item.icon, contentDescription = null)
+                        },
+                        label = {
+                            Text(text = stringResource(id = item.titleResId))
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSecondary,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSecondary)
+                    )
+                }
+            }
+        }
+
+    ){
+        Text(text = "Text", modifier = Modifier.padding(it))
+        PostCard() <--- сюда не передать padding, поэтому хорошей практикой при написании Composable-функций является передача параметра Modifier
+    }
+}
+
+@Composable
+fun PostCard(modifier: Modifier = Modifier) { <--- передаём Modifier
+    Card(
+        modifier = modifier.fillMaxWidth(), <------- и этот modifier передаём в верхнюю функцию + расширяем если нужно
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary
+        )
+    ) {......
+	
+Теперь поработаем с панелью статистики
+
+Чтобы не хардкодить, создадим класс, который будет представлять из себя один элемент статистики
+
+enum class StatisticType{
+    VIEWS,
+    COMMENTS,
+    SHARES,
+    LIKES
+}
+data class StatisticItem(
+    val type : StatisticType,
+    val count : Int = 0
+)
+
+Передадим статистику
+
+@Composable
+private fun Statistics(statistics : List<StatisticItem>)
+....
+Напишем расширение для поиска элемента по типу
+
+private fun List<StatisticItem>.getItemByType(type : StatisticType) : StatisticItem{
+    return this.find { it.type == type } ?: throw IllegalArgumentException()
+}
+
+И
+
+@Composable
+private fun Statistics(statistics : List<StatisticItem>) {
+    Row {
+        Row(modifier = Modifier.weight(1f))
+        {
+            val viewItem = statistics.getItemByType(StatisticType.VIEWS)
+            IconWithText(iconResId = R.drawable.ic_views_count, 
+                viewItem.count.toString())
+        }
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            var viewItem = statistics.getItemByType(StatisticType.SHARES)
+            IconWithText(iconResId = R.drawable.ic_share,
+                viewItem.count.toString())
+            viewItem = statistics.getItemByType(StatisticType.COMMENTS)
+            IconWithText(iconResId = R.drawable.ic_comment,
+                viewItem.count.toString())
+            viewItem = statistics.getItemByType(StatisticType.LIKES)
+            IconWithText(iconResId = R.drawable.ic_like,
+                viewItem.count.toString())
+        }
+
+    }
+}
+
+
+Создадим данные для Post с дефолтными значениями
+
+data class FeedPost(
+    val comunityName: String = "/dev/null",
+    val publicationDate: String = "14:00",
+    val avatarResId: Int = R.drawable.post_comunity_thumbnail,
+    val contentText: String = "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    val contentImageResId: Int = R.drawable.post_content_image,
+    val statistics: List<StatisticItem> = listOf(
+        StatisticItem(StatisticType.VIEWS, 234),
+        StatisticItem(StatisticType.COMMENTS, 113),
+        StatisticItem(StatisticType.SHARES, 34),
+        StatisticItem(StatisticType.LIKES, 243)
+    )
+)
+
+Передадим объект FeedPost в PostCard и заменим данные из класса данных
+
+@Composable
+fun PostCard(modifier: Modifier = Modifier, feedPost: FeedPost) { <--------------
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary
+        )
+    ) {
+
+        Column(modifier = Modifier.padding(8.dp)) {
+            PostHeader(feedPost) <----------------
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = feedPost.contentText) <-----------------------
+            Spacer(modifier = Modifier.height(8.dp))
+            Image(
+                modifier = Modifier.fillMaxWidth(),
+                painter = painterResource(id = feedPost.contentImageResId), <-----------
+                contentDescription = null,
+                contentScale = ContentScale.FillWidth
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Statistics(feedPost.statistics)
+        }
+
+    }
+
+}
+
+
+
+@Composable
+private fun PostHeader(feedPost: FeedPost) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Image(
+            modifier = Modifier
+                .size(50.dp)
+                .clip(shape = CircleShape),
+            painter = painterResource(id = feedPost.avatarResId), <-------------
+            contentDescription = null
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column(
+            modifier = Modifier
+                .weight(1f),
+            verticalArrangement = Arrangement.SpaceEvenly
+
+        ) {
+            Text(
+                text = feedPost.comunityName, <-------------------
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = feedPost.publicationDate, <------------------
+                color = MaterialTheme.colorScheme.onSecondary
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(
+            imageVector = Icons.Rounded.MoreVert,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSecondary
+        )
+    }
+}
+
+Теперь поработаем с статистикой
+
+@Composable
+private fun IconWithText(iconResId: Int, text: String,
+                         onItemClickListener : () -> Unit) {
+    Row(
+        modifier = Modifier.clickable {
+            onItemClickListener()   <----клик на элемент Row передаём наверх
+        },
+		.................
+		
+В функции Statistics также клик пробрасываем вверх
+
+private fun Statistics(statistics : List<StatisticItem>,
+                       onItemClickListener: (item : StatisticItem) -> Unit) { <--- добавляем листенер
+    Row {
+        Row(modifier = Modifier.weight(1f))
+        {
+            val viewItem = statistics.getItemByType(StatisticType.VIEWS)
+            IconWithText(iconResId = R.drawable.ic_views_count,
+                viewItem.count.toString()
+            ) { onItemClickListener(viewItem) } <--- пробрасываем клик
+        }
+
+
+В PostCard также пробрасываем
+
+@Composable
+fun PostCard(modifier: Modifier = Modifier, feedPost: FeedPost,
+onStatisticItemClickListener: (item: StatisticItem) -> Unit <-------------------------------назовём более понятно
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary
+        )
+    ) {
+
+        Column(modifier = Modifier.padding(8.dp)) {
+            PostHeader(feedPost)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = feedPost.contentText)
+            Spacer(modifier = Modifier.height(8.dp))
+            Image(
+                modifier = Modifier.fillMaxWidth(),
+                painter = painterResource(id = feedPost.contentImageResId),
+                contentDescription = null,
+                contentScale = ContentScale.FillWidth
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Statistics(feedPost.statistics, onStatisticItemClickListener) <-------------------
+        }
+
+    }
+
+}
+
+Перекидываем clickListener выше и заменяем в одном элементе статистики count 
+fun MainScreen()
+.....
+ PostCard(modifier = Modifier.padding(it),
+            feedPost = feedPost.value,
+            onStatisticItemClickListener = { newItem ->
+                val oldStatistics = feedPost.value.statistics
+                val newStatistics = oldStatistics.toMutableList().apply {
+                    replaceAll{oldItem ->
+                        if(oldItem.type == newItem.type){
+                            oldItem.copy(count = oldItem.count + 1)
+                        }else{
+                            oldItem
+                        }
+
+                    }
+                }
+                feedPost.value = feedPost.value.copy(statistics = newStatistics.toList())
+            }
+        )
