@@ -707,3 +707,80 @@ fun MainScreen()
                 feedPost.value = feedPost.value.copy(statistics = newStatistics.toList())
             }
         )
+		
+#4.5 Добавление ViewModel
+
+class MainViewModel : ViewModel() {
+
+    private val _feedPost = MutableLiveData(FeedPost())
+
+    val feedPost : LiveData<FeedPost> = _feedPost
+
+    public fun updateStatistics(item: StatisticItem){
+        val oldStatistics = feedPost.value.statistics
+        val newStatistics = oldStatistics.toMutableList().apply {
+            replaceAll { oldItem ->
+                if(oldItem.type == item.type){
+                    oldItem.copy(count = oldItem.count + 1)
+                }else{
+                    oldItem
+                }
+            }
+        }
+        _feedPost.value = feedPost.value.copy(statistics = newStatistics)
+    }
+}
+
+В MainActivity :
+
+
+val viewModel : MainViewModel by viewModels<MainViewModel>()
+
+@Composable
+fun MainScreen(viewModel: MainViewModel){
+......
+
+    ){
+        val feedPost = viewModel.feedPost.observeAsState(initial = FeedPost())        <-- feedPost переносим сюда
+        PostCard(modifier = Modifier.padding(it),
+            feedPost = feedPost.value,
+            onStatisticItemClickListener = { newItem ->
+               viewModel.updateStatistics(newItem)
+            }
+        )
+    }
+}
+
+Но далее будет отдельная функция для каждого элемента статистики, поэтому разделим их
+
+{
+        val feedPost = viewModel.feedPost.observeAsState(initial = FeedPost())
+        PostCard(modifier = Modifier.padding(it),
+            feedPost = feedPost.value,
+            onViewsClickListener = {
+                                      viewModel.updateStatistics(it)
+            },
+            onShareClickListener = {
+                viewModel.updateStatistics(it)
+            },
+            onCommentsClickListener = {
+                viewModel.updateStatistics(it)
+            },
+            onLikeClickListener = {
+                viewModel.updateStatistics(it)
+            }
+        )
+    }
+	
+Здесь можно использовать метод-референс
+
+{ paddingValues ->
+        val feedPost = viewModel.feedPost.observeAsState(initial = FeedPost())
+        PostCard(modifier = Modifier.padding(paddingValues),
+            feedPost = feedPost.value,
+            onViewsClickListener = viewModel::updateStatistics,           
+            onShareClickListener = viewModel::updateStatistics,
+            onCommentsClickListener = viewModel::updateStatistics,
+            onLikeClickListener =viewModel::updateStatistics
+        )
+    }

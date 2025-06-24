@@ -18,6 +18,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,17 +26,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.launch
+import ru.melolchik.vknewsclient.MainViewModel
 import ru.melolchik.vknewsclient.domain.FeedPost
 
 fun log(text : String){
     Log.d("COMPOSE_TEST", text)
 }
 @Composable
-fun MainScreen(){
+fun MainScreen(viewModel: MainViewModel){
 
-    val feedPost = remember {
-        mutableStateOf<FeedPost>( FeedPost())
-    }
+
     Scaffold (
         bottomBar = {
             NavigationBar {
@@ -64,24 +64,14 @@ fun MainScreen(){
             }
         }
 
-    ){
-        //Text(text = "Text", modifier = Modifier.padding(it))
-        PostCard(modifier = Modifier.padding(it),
+    ){ paddingValues ->
+        val feedPost = viewModel.feedPost.observeAsState(initial = FeedPost())
+        PostCard(modifier = Modifier.padding(paddingValues),
             feedPost = feedPost.value,
-            onStatisticItemClickListener = { newItem ->
-                val oldStatistics = feedPost.value.statistics
-                val newStatistics = oldStatistics.toMutableList().apply {
-                    replaceAll{oldItem ->
-                        if(oldItem.type == newItem.type){
-                            oldItem.copy(count = oldItem.count + 1)
-                        }else{
-                            oldItem
-                        }
-
-                    }
-                }
-                feedPost.value = feedPost.value.copy(statistics = newStatistics.toList())
-            }
+            onViewsClickListener = viewModel::updateStatistics,
+            onShareClickListener = viewModel::updateStatistics,
+            onCommentsClickListener = viewModel::updateStatistics,
+            onLikeClickListener =viewModel::updateStatistics
         )
     }
 }

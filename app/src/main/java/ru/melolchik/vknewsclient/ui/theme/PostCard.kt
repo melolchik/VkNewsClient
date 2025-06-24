@@ -35,8 +35,12 @@ import ru.melolchik.vknewsclient.domain.StatisticType
 
 
 @Composable
-fun PostCard(modifier: Modifier = Modifier, feedPost: FeedPost,
-onStatisticItemClickListener: (item: StatisticItem) -> Unit
+fun PostCard(
+    modifier: Modifier = Modifier, feedPost: FeedPost,
+    onViewsClickListener: (item: StatisticItem) -> Unit,
+    onShareClickListener: (item: StatisticItem) -> Unit,
+    onCommentsClickListener: (item: StatisticItem) -> Unit,
+    onLikeClickListener: (item: StatisticItem) -> Unit
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -57,7 +61,13 @@ onStatisticItemClickListener: (item: StatisticItem) -> Unit
                 contentScale = ContentScale.FillWidth
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Statistics(feedPost.statistics, onStatisticItemClickListener)
+            Statistics(
+                feedPost.statistics,
+
+                onViewsClickListener,
+                onShareClickListener,
+                onCommentsClickListener,
+                onLikeClickListener)
         }
 
     }
@@ -65,47 +75,62 @@ onStatisticItemClickListener: (item: StatisticItem) -> Unit
 }
 
 @Composable
-private fun Statistics(statistics : List<StatisticItem>,
-                       onItemClickListener: (item : StatisticItem) -> Unit) {
+private fun Statistics(
+    statistics: List<StatisticItem>,
+    ,
+    onViewsClickListener: (item: StatisticItem) -> Unit,
+    onShareClickListener: (item: StatisticItem) -> Unit,
+    onCommentsClickListener: (item: StatisticItem) -> Unit,
+    onLikeClickListener: (item: StatisticItem) -> Unit
+) {
     Row {
         Row(modifier = Modifier.weight(1f))
         {
             val viewItem = statistics.getItemByType(StatisticType.VIEWS)
-            IconWithText(iconResId = R.drawable.ic_views_count,
+            IconWithText(
+                iconResId = R.drawable.ic_views_count,
                 viewItem.count.toString()
-            ) { onItemClickListener(viewItem) }
+            ) { onViewsClickListener(viewItem) }
         }
         Row(
             modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             val shareItem = statistics.getItemByType(StatisticType.SHARES)
-            IconWithText(iconResId = R.drawable.ic_share,
-                shareItem.count.toString()){
-                onItemClickListener(shareItem)
+            IconWithText(
+                iconResId = R.drawable.ic_share,
+                shareItem.count.toString()
+            ) {
+                onShareClickListener(shareItem)
             }
             val commentsItem = statistics.getItemByType(StatisticType.COMMENTS)
-            IconWithText(iconResId = R.drawable.ic_comment,
-                commentsItem.count.toString()){
-                onItemClickListener(commentsItem)
+            IconWithText(
+                iconResId = R.drawable.ic_comment,
+                commentsItem.count.toString()
+            ) {
+                onCommentsClickListener(commentsItem)
             }
             val likesItem = statistics.getItemByType(StatisticType.LIKES)
-            IconWithText(iconResId = R.drawable.ic_like,
-                likesItem.count.toString()){
-                onItemClickListener(likesItem)
+            IconWithText(
+                iconResId = R.drawable.ic_like,
+                likesItem.count.toString()
+            ) {
+                onLikeClickListener(likesItem)
             }
         }
 
     }
 }
 
-private fun List<StatisticItem>.getItemByType(type : StatisticType) : StatisticItem{
+private fun List<StatisticItem>.getItemByType(type: StatisticType): StatisticItem {
     return this.find { it.type == type } ?: throw IllegalArgumentException()
 }
 
 @Composable
-private fun IconWithText(iconResId: Int, text: String,
-                         onItemClickListener : () -> Unit) {
+private fun IconWithText(
+    iconResId: Int, text: String,
+    onItemClickListener: () -> Unit
+) {
     Row(
         modifier = Modifier.clickable {
             onItemClickListener()
