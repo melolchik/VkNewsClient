@@ -1085,3 +1085,147 @@ fun TextCounter(text : String){
     }
 	....
 При повторном переходе во вкладу (Favorite или Profile) count не сохраняется, т..к. Composable-функция каждый раз вызывается занова
+
+
+#5.2 Jetpack Compose Navigation
+
+Добавляем библиотеку
+
+implementation("androidx.navigation:navigation-compose:2.8.6")
+
+Путь - является строкой
+Создадим пакет navigation класс Screen - это все экраны нашего приложения, каждый хранит путь, который будем использовать для навигации
+
+sealed class Screen(val route: String) {
+
+    object NewsFeed : Screen(ROUTE_NEWS_FEED)
+    object Favorite : Screen(ROUTE_FAVORITE)
+    object Profile : Screen(ROUTE_PROFILE)
+
+
+    private companion object {
+        const val ROUTE_NEWS_FEED = "news_feed"
+        const val ROUTE_FAVORITE = "favorite"
+        const val ROUTE_PROFILE = "profile"
+    }
+}
+
+НАВИГАЦИЯ представляет собой граф, в котором прописываются все возможные переходы. Его нужно создать
+Навигация - это Composable-функция, создаём её в одноимённом файле!
+
+@Composable
+fun AppNavGraph(navHostController: NavHostController){ <--- пока передадим в функцию
+    NavHost(
+        navController = navHostController,
+        startDestination = Screen.NewsFeed.route <-- начальный путь
+        ){// в билдере будем строить сам граф и добавлять destination
+        composable<>()
+    }
+
+}
+
+public fun NavGraphBuilder.composable( <- composable под кпотом
+    route: String,
+    .....
+) {
+    destination( <--- добавляет направление
+	....
+
+Далее
+
+@Composable
+fun AppNavGraph(navHostController: NavHostController,
+                homeScreenContent : @Composable () -> Unit
+){
+    NavHost(
+        navController = navHostController,
+        startDestination = Screen.NewsFeed.route
+        ){
+        composable(Screen.NewsFeed.route){ <-- Передаём название пути, аргументы для экрана
+            homeScreenContent				<--- И контент , что показываем при переходе, но выносим в аргумент функции AppNavGraph
+        }
+    }
+
+}
+
+Аналогично остальные экраны
+
+@Composable
+fun AppNavGraph(navHostController: NavHostController, <--- стейт навигации
+                homeScreenContent : @Composable () -> Unit,
+                favoriteScreenContent : @Composable () -> Unit,
+                profileScreenContent : @Composable ()-> Unit
+){
+    NavHost(
+        navController = navHostController,
+        startDestination = Screen.NewsFeed.route
+        ){
+        composable(Screen.NewsFeed.route){
+            homeScreenContent()
+        }
+        
+        composable(Screen.Favorite.route){
+            favoriteScreenContent()
+        }
+
+        composable(Screen.Profile.route){
+            profileScreenContent()
+        }
+    }
+
+}
+Граф готов, можно использовать его на главном экране
+
+В MainScreen
+
+val navHostController = rememberNavController()
+
+и вместо
+
+  when(selectedNavItem){
+            NavigationItem.Home -> HomeScreen(viewModel = viewModel, paddingValues = paddingValues)
+            NavigationItem.Favorite -> TextCounter(text = "Favorite")
+            NavigationItem.Profile -> TextCounter(text = "Profile")
+        }
+создаём граф
+
+ AppNavGraph(
+            navHostController = navHostController,
+            homeScreenContent = {
+                HomeScreen(viewModel = viewModel, paddingValues = paddingValues)
+                                },
+            favoriteScreenContent = {
+                TextCounter(text = "Favorite")
+            },
+            profileScreenContent = {
+                TextCounter(text = "Profile")
+            })
+			
+Но BottomNavigation ничего не знает про наш граф и его элементы никак не связаны с нашей навигацией
+
+1) Добавим в NavigationItem поле Screen
+
+sealed class NavigationItem(
+    val screen: Screen,
+    val titleResId : Int,
+    val icon: ImageVector
+){
+    object Home : NavigationItem (Screen.NewsFeed,R.string.navigation_item_main, Icons.Outlined.Home)
+    object Favorite : NavigationItem (Screen.Favorite,R.string.navigation_item_favourite, Icons.Outlined.Favorite)
+    object Profile : NavigationItem (Screen.Profile,R.string.navigation_item_profile, Icons.Outlined.Person)
+}
+
+Убираем связь с selectedItemPosition из ViewModel
+
+fun MainScreen(viewModel: MainViewModel){
+....
+				val navBackStackEntry by navHostController.currentBackStackEntryAsState() <--- текушее состояние стека
+                val currentRoute = navBackStackEntry?.destination?.route <--- из него берём текущий route
+                items.forEachIndexed { index, item ->
+                    NavigationBarItem(
+                        selected = currentRoute == item.screen.route, <---- сравниваем с текущим route
+                        onClick = {
+                            navHostController.navigate(item.screen.route) <---- по клику пользуемся навигацией
+                                  },
+								  
+Запускаем - бэкстек работает, остальные проблемы дальше

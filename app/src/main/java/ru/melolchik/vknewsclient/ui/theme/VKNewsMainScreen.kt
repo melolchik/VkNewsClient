@@ -43,9 +43,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import ru.melolchik.vknewsclient.MainViewModel
 import ru.melolchik.vknewsclient.domain.FeedPost
+import ru.melolchik.vknewsclient.navigation.AppNavGraph
 
 fun log(text : String){
     Log.d("COMPOSE_TEST", text)
@@ -53,18 +56,22 @@ fun log(text : String){
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel){
-
-    val selectedNavItem by viewModel.selectedNavItem.observeAsState(NavigationItem.Home)
+    val navHostController = rememberNavController()
     Scaffold (
         bottomBar = {
             NavigationBar {
 
 
                 val items = listOf(NavigationItem.Home,NavigationItem.Favorite,NavigationItem.Profile)
+                val navBackStackEntry by navHostController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
                 items.forEachIndexed { index, item ->
                     NavigationBarItem(
-                        selected = selectedNavItem == item,
-                        onClick = { viewModel.selectNavItem(item) },
+                        selected = currentRoute == item.screen.route,
+                        onClick = {
+                            viewModel.selectNavItem(item)
+                            navHostController.navigate(item.screen.route)
+                                  },
                         icon = {
                         Icon(imageVector = item.icon, contentDescription = null)
                         },
@@ -82,12 +89,18 @@ fun MainScreen(viewModel: MainViewModel){
         }
 
     ){ paddingValues ->
-        when(selectedNavItem){
-            NavigationItem.Home -> HomeScreen(viewModel = viewModel, paddingValues = paddingValues)
-            NavigationItem.Favorite -> TextCounter(text = "Favorite")
-            NavigationItem.Profile -> TextCounter(text = "Profile")
-        }
-
+        
+        AppNavGraph(
+            navHostController = navHostController,
+            homeScreenContent = {
+                HomeScreen(viewModel = viewModel, paddingValues = paddingValues)
+                                },
+            favoriteScreenContent = {
+                TextCounter(text = "Favorite")
+            },
+            profileScreenContent = {
+                TextCounter(text = "Profile")
+            })
     }
 }
 
@@ -96,7 +109,8 @@ fun TextCounter(text : String){
     var count by remember {
         mutableStateOf(0)
     }
-    Text(modifier = Modifier.padding(16.dp)
+    Text(modifier = Modifier
+        .padding(16.dp)
         .clickable { count++ },
         text = "Name = $text count = $count",
         color = MaterialTheme.colorScheme.onPrimary)
