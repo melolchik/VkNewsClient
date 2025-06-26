@@ -936,3 +936,152 @@ LazyColumn(modifier = Modifier.padding(paddingValues), <--- paddingValue из Sc
 SwipeToDismiss(
                modifier = Modifier.animateItemPlacement(), <--- просто добавим анимацию в modifier  объекта SwipeToDismiss
 			   ......
+			   
+			   
+#5. Навигация в Jetpack Compose
+
+#5.1 Навигация без использования библиотек
+
+Перенесём selectedNavItem во ViewModel
+
+class MainViewModel : ViewModel() {
+
+    ........
+    
+    private val _selectedNavItem = MutableLiveData<NavigationItem>(NavigationItem.Home)
+    val selectedNavItem : LiveData<NavigationItem> = _selectedNavIt
+	
+	fun selectNavItem(navigationItem: NavigationItem){
+        _selectedNavItem.value = navigationItem
+    }
+	
+	.........
+	
+Меняем view:
+
+@Composable
+fun MainScreen(viewModel: MainViewModel){
+
+    val selectedNavItem by viewModel.selectedNavItem.observeAsState(NavigationItem.Home) <------
+    Scaffold (
+        bottomBar = {
+            NavigationBar {
+
+
+                val items = listOf(NavigationItem.Home,NavigationItem.Favorite,NavigationItem.Profile)
+                items.forEachIndexed { index, item -> <----- индесы можно удалить
+                    NavigationBarItem(
+                        selected = selectedNavItem == item, <------
+                        onClick = { viewModel.selectNavItem(item) }, <-------
+                        icon = {
+                        Icon(imageVector = item.icon, contentDescription = null)
+                        },
+                        label = {
+                            Text(text = stringResource(id = item.titleResId))
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSecondary,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSecondary)
+                    )
+                }
+            }
+        }
+		........
+		
+Перенесём содержимое Scaffold в отдельный файли в отдельную Composable-функцию
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun HomeScreen(
+    viewModel : MainViewModel,
+    paddingValues : PaddingValues
+){
+
+    val feedPostList = viewModel.feedPostList.observeAsState(initial = listOf())
+    LazyColumn(modifier = androidx.compose.ui.Modifier.padding(paddingValues),
+        contentPadding = PaddingValues(top = 16.dp, start = 8.dp, end = 8.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        items(feedPostList.value, key = {it.id }){ feedPost ->
+            val dismissState = rememberDismissState()
+
+            if(dismissState.isDismissed(DismissDirection.EndToStart)){
+                viewModel.deleteItem(feedPost)
+            }
+            SwipeToDismiss(
+                modifier = Modifier.animateItemPlacement(),
+                state = dismissState,
+                background = {
+                    Box(modifier = Modifier
+                        .padding(16.dp)
+                        .background(color = Color.Red.copy(alpha = 0.5f))
+                        .fillMaxSize(),
+                        contentAlignment = Alignment.CenterEnd
+                    ){
+                        Text(text = "Delete Item",
+                            modifier = Modifier.padding(16.dp),
+                            color = Color.White)
+                    }
+                },
+                dismissContent = {
+                    PostCard(modifier = Modifier,
+                        feedPost = feedPost,
+                        onViewsClickListener = { statisticItem ->
+                            viewModel.updateStatistics(feedPost,statisticItem) },
+                        onShareClickListener = { statisticItem ->
+                            viewModel.updateStatistics(feedPost,statisticItem) },
+                        onCommentsClickListener = { statisticItem ->
+                            viewModel.updateStatistics(feedPost,statisticItem) },
+                        onLikeClickListener = { statisticItem ->
+                            viewModel.updateStatistics(feedPost,statisticItem) }
+                    )
+
+                },
+                directions = setOf(DismissDirection.EndToStart))
+
+        }
+    }
+
+}
+
+Внутрь Scaffold прописываем
+...
+{ paddingValues ->
+        when(selectedNavItem){
+            NavigationItem.Home -> HomeScreen(viewModel = viewModel, paddingValues = paddingValues)
+            NavigationItem.Favorite -> Text(text = "Favorite", color = Color.Black)
+            NavigationItem.Profile -> Text(text = "Profile", color = Color.Black)
+        }
+
+    }
+	....
+	
+Всё работает, но есть несколько проблему
+1) Нет бэкстека
+2) Состояние вкладки не сохраняется
+Выведем кол-во нажатий на экран
+
+@Composable
+fun TextCounter(text : String){
+    var count by remember {
+        mutableStateOf(0)
+    }
+    Text(modifier = Modifier.padding(16.dp)
+        .clickable { count++ },
+        text = "Name = $text count = $count", 
+        color = MaterialTheme.colorScheme.onPrimary)
+}
+
+...
+{ paddingValues ->
+        when(selectedNavItem){
+            NavigationItem.Home -> HomeScreen(viewModel = viewModel, paddingValues = paddingValues)
+            NavigationItem.Favorite -> TextCounter(text = "Favorite")
+            NavigationItem.Profile -> TextCounter(text = "Profile")
+        }
+
+    }
+	....
+При повторном переходе во вкладу (Favorite или Profile) count не сохраняется, т..к. Composable-функция каждый раз вызывается занова

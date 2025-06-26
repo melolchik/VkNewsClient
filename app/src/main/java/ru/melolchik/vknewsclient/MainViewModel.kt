@@ -5,6 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.domain.StatisticItem
+import ru.melolchik.vknewsclient.ui.theme.NavigationItem
 
 class MainViewModel : ViewModel() {
 
@@ -16,6 +17,13 @@ class MainViewModel : ViewModel() {
     private val _feedPostList = MutableLiveData( initList.toList())
 
     val feedPostList : LiveData<List<FeedPost>> = _feedPostList
+
+    private val _selectedNavItem = MutableLiveData<NavigationItem>(NavigationItem.Home)
+    val selectedNavItem : LiveData<NavigationItem> = _selectedNavItem
+
+    fun selectNavItem(navigationItem: NavigationItem){
+        _selectedNavItem.value = navigationItem
+    }
 
     private fun List<FeedPost>.getItemById(id: Int) : FeedPost{
         return this.find{it.id == id} ?: throw IllegalArgumentException("FeedPost with id = $id not found!")
