@@ -30,7 +30,7 @@ fun HomeScreen(
 ){
 
     val feedPostList = viewModel.feedPostList.observeAsState(initial = listOf())
-    LazyColumn(modifier = androidx.compose.ui.Modifier.padding(paddingValues),
+    LazyColumn(modifier = Modifier.padding(paddingValues),
         contentPadding = PaddingValues(top = 16.dp, start = 8.dp, end = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {

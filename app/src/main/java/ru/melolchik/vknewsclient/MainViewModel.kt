@@ -18,13 +18,6 @@ class MainViewModel : ViewModel() {
 
     val feedPostList : LiveData<List<FeedPost>> = _feedPostList
 
-    private val _selectedNavItem = MutableLiveData<NavigationItem>(NavigationItem.Home)
-    val selectedNavItem : LiveData<NavigationItem> = _selectedNavItem
-
-    fun selectNavItem(navigationItem: NavigationItem){
-        _selectedNavItem.value = navigationItem
-    }
-
     private fun List<FeedPost>.getItemById(id: Int) : FeedPost{
         return this.find{it.id == id} ?: throw IllegalArgumentException("FeedPost with id = $id not found!")
     }

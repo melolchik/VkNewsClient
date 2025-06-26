@@ -1229,3 +1229,66 @@ fun MainScreen(viewModel: MainViewModel){
                                   },
 								  
 Запускаем - бэкстек работает, остальные проблемы дальше
+
+#5.3 Исправляем баги в навигации
+
+В прошлом уроке мы реализовали переходы по экраном с помощью библиотеки Jetpack Compose Navigation
+Но ещё есть ряд проблему
+
+
+1)При переходе назад не сохраняется кол-во кликов в Favorite. При этом мы не создавали занова Composable-функцию!!! 
+Она была взята из бэкстека, но при этом её состояние сбросилось. При этом стейт первого списка сохранился
+Решение: Нужно использовать функцию rememberSaveable
+При попадании в бэкстек Composable-функция умирает,а при нажатии Назад пересоздаётся. При использовании remember состояние не сохраняется
+
+Теперь стейт сохраняется. Почему же сохраняется на первом экране
+- Если посмотреть LazyColumn то в нём на скрол по-умолчанию повешено savable состояние
+
+2) Если кликнуть несколько раз на один и тот же элемент,то будет создано множество одинаковых Composable-функций
+Решение:
+
+Смотрим  navHostController.navigate(item.screen.route)
+
+ @MainThread
+    public fun navigate(route: String, builder: NavOptionsBuilder.() -> Unit) {
+        navigate(route, navOptions(builder))
+    }
+	
+public class NavOptionsBuilder {
+    private val builder = NavOptions.Builder()
+
+    /**
+     * Whether this navigation action should launch as single-top (i.e., there will be at most one
+     * copy of a given destination on the top of the back stack).
+     *
+     * This functions similarly to how [android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP] works with
+     * activities.
+     */
+    public var launchSingleTop: Boolean = false
+	.....
+Решено! 
+
+3) При множестве переходов между экранами хранится весь бэкстек
+
+Здесь несколько решений. Лучшее от google - из бэкстека удаляются все экраны между тем который перешли и стартовым
+Пример: Главная -> Избранное -> Профиль. При переходе на третий экран (Профиль) из бэкстека удалится Избранное. При клике Назад пользователь перейдёт к стартовому экрану
+Реализуем это
+
+					onClick = {
+                                navHostController.navigate(item.screen.route){
+                                    popUpTo(Screen.NewsFeed.route)
+                                    launchSingleTop = true
+                                }
+4) При решении проблемы 3, не сохоаняются состояния экранов count
+Решение:
+
+ onClick = {
+                                navHostController.navigate(item.screen.route){
+                                    popUpTo(Screen.NewsFeed.route){
+                                        saveState = true <-- сохранять при закрытии/удалении из бэкстека
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true <--- восстановление состояния
+                                }
+								
+Обратить внимание!! Стейт не сохраниться если экран удалить из бэкстека нажав Назад!

@@ -37,6 +37,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +50,7 @@ import kotlinx.coroutines.launch
 import ru.melolchik.vknewsclient.MainViewModel
 import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.navigation.AppNavGraph
+import ru.melolchik.vknewsclient.navigation.Screen
 
 fun log(text : String){
     Log.d("COMPOSE_TEST", text)
@@ -69,8 +71,13 @@ fun MainScreen(viewModel: MainViewModel){
                     NavigationBarItem(
                         selected = currentRoute == item.screen.route,
                         onClick = {
-                            viewModel.selectNavItem(item)
-                            navHostController.navigate(item.screen.route)
+                                navHostController.navigate(item.screen.route){
+                                    popUpTo(Screen.NewsFeed.route){
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                                   },
                         icon = {
                         Icon(imageVector = item.icon, contentDescription = null)
@@ -106,7 +113,7 @@ fun MainScreen(viewModel: MainViewModel){
 
 @Composable
 fun TextCounter(text : String){
-    var count by remember {
+    var count by rememberSaveable {
         mutableStateOf(0)
     }
     Text(modifier = Modifier
