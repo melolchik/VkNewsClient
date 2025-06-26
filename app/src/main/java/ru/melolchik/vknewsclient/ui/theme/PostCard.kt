@@ -77,7 +77,6 @@ fun PostCard(
 @Composable
 private fun Statistics(
     statistics: List<StatisticItem>,
-    ,
     onViewsClickListener: (item: StatisticItem) -> Unit,
     onShareClickListener: (item: StatisticItem) -> Unit,
     onCommentsClickListener: (item: StatisticItem) -> Unit,

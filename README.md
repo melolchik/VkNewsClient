@@ -784,3 +784,155 @@ fun MainScreen(viewModel: MainViewModel){
             onLikeClickListener =viewModel::updateStatistics
         )
     }
+	
+#4.9 Добавляем LazyColumn в VkClient
+
+Реализация
+
+class MainViewModel : ViewModel() {
+
+    private val initList = mutableListOf<FeedPost>().apply {
+        repeat(100){
+            add(FeedPost(it))
+        }
+    }
+    private val _feedPostList = MutableLiveData( initList.toList())
+
+    val feedPostList : LiveData<List<FeedPost>> = _feedPostList
+
+    private fun List<FeedPost>.getItemById(id: Int) : FeedPost{
+        return this.find{it.id == id} ?: throw IllegalArgumentException("FeedPost with id = $id not found!")
+    }
+
+    fun deleteItem(feedPost: FeedPost){
+        val oldList = _feedPostList.value?.toMutableList() ?: mutableListOf()
+        oldList.remove(feedPost)
+        _feedPostList.value = oldList
+    }
+
+    public fun updateStatistics(feedPost: FeedPost ,statisticItem: StatisticItem){
+        val feedPostItem = _feedPostList.value?.getItemById(feedPost.id) ?: throw IllegalArgumentException("FeedPost not found!")
+        val oldStatistics = feedPostItem.statistics
+        val newStatistics = oldStatistics.toMutableList().apply {
+            replaceAll { oldItem ->
+                if(oldItem.type == statisticItem.type){
+                    oldItem.copy(count = oldItem.count + 1)
+                }else{
+                    oldItem
+                }
+            }
+        }
+        //val newFeedPostItem = feedPostItem.copy(statistics = newStatistics)
+        val newFeedPostList = _feedPostList.value?.toMutableList()?.apply {
+            replaceAll { oldItem ->
+                if(oldItem.id == feedPost.id){
+                    oldItem.copy(statistics = newStatistics)
+                }else{
+                    oldItem
+                }
+
+            }
+        }
+        _feedPostList.value = newFeedPostList
+
+    }
+}
+
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreen(viewModel: MainViewModel){
+
+
+    Scaffold (
+        bottomBar = {
+            NavigationBar {
+
+                val selectedItemPosition = remember {
+                    mutableIntStateOf(0)
+                }
+                val items = listOf(NavigationItem.Home,NavigationItem.Favorite,NavigationItem.Profile)
+                items.forEachIndexed { index, item ->
+                    NavigationBarItem(
+                        selected = selectedItemPosition.value == index,
+                        onClick = { selectedItemPosition.value = index },
+                        icon = {
+                        Icon(imageVector = item.icon, contentDescription = null)
+                        },
+                        label = {
+                            Text(text = stringResource(id = item.titleResId))
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSecondary,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSecondary)
+                    )
+                }
+            }
+        }
+
+    ){ paddingValues ->
+        val feedPostList = viewModel.feedPostList.observeAsState(initial = listOf())
+        LazyColumn(modifier = Modifier.padding(paddingValues)) {
+            items(feedPostList.value, key = {it.id }){ feedPost ->
+                val dismissState = rememberDismissState()  <--- state Обязательно должен быть внутри item!
+
+                if(dismissState.isDismissed(DismissDirection.EndToStart)){
+                    viewModel.deleteItem(feedPost)
+                }
+                SwipeToDismiss(
+                    state = dismissState,
+                    background = {
+                        Box(modifier = Modifier.padding(16.dp)
+                            .background(color = Color.Red.copy(alpha = 0.5f))
+                            .fillMaxSize(),
+                            contentAlignment = Alignment.CenterEnd
+                        ){
+                            Text(text = "Delete Item",
+                                modifier = Modifier.padding(16.dp),
+                                color = Color.White)
+                        }
+                    },
+                    dismissContent = {
+                        PostCard(modifier = Modifier.padding(16.dp),
+                            feedPost = feedPost,
+                            onViewsClickListener = { statisticItem ->
+                                viewModel.updateStatistics(feedPost,statisticItem) },
+                            onShareClickListener = { statisticItem ->
+                                viewModel.updateStatistics(feedPost,statisticItem) },
+                            onCommentsClickListener = { statisticItem ->
+                                viewModel.updateStatistics(feedPost,statisticItem) },
+                            onLikeClickListener = { statisticItem ->
+                                viewModel.updateStatistics(feedPost,statisticItem) }
+                        )
+
+                    },
+                    directions = setOf(DismissDirection.EndToStart))
+
+            }
+        }
+
+    }
+}
+
+Cвойство paddingValue в scafold на самом деле полезная штука. 
+Оно как раз решает проблему скрытости контента за нижнем меню, и данное 
+свойство появляется только тогда, когда мы устанавливаем нижнее меню. 
+То есть при установке paddingValues(it) больше не нужно высчитывать dp что 
+бы контент не заползал за нижнее меню, это свойство высчитывает это автоматом, 
+каким бы по высоте не было бы нижнее меню. Надеюсь коммент был полезен
+
+Уберём padding в FeedPost и установим падденги внутри LazyColumn
+
+LazyColumn(modifier = Modifier.padding(paddingValues), <--- paddingValue из Scafold
+            contentPadding = PaddingValues(top = 16.dp, start = 8.dp, end = 8.dp, bottom = 16.dp) <--- content
+			verticalArrangement = Arrangement.spacedBy(16.dp) <--- отступ между элементами
+            )
+			
+Добавим анимацию при удалении
+
+SwipeToDismiss(
+               modifier = Modifier.animateItemPlacement(), <--- просто добавим анимацию в modifier  объекта SwipeToDismiss
+			   ......
