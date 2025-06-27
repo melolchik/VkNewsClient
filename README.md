@@ -1399,3 +1399,113 @@ fun MainScreen(viewModel: MainViewModel){
 @Composable
 inline fun <T> remember(crossinline calculation: @DisallowComposableCalls () -> T): T =
     currentComposer.cache(false, calculation)
+	
+	
+	#5.5 Создание экрана комментариев. Часть 1
+	
+	Создадим экран с комментариями. Навигацию реализуем без использования библиотеки
+	
+	Нам понадобится класс, который представляет собой комментарий
+	
+data class PostComment(
+    val id: Int,
+    val authorName : String = "Author Name",
+    val authorAvatarId : Int = R.drawable.comment_author_avatar,
+    val commentTeat : String = "Long comment text",
+    val publicationDate: String = "14:00"
+
+)
+
+Теперь создадим экран c комментариями
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CommentsScreen(
+    feedPost: FeedPost,
+    comments: List<PostComment>
+){
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(text = "Comments for FeedPost Id : ${feedPost.id}")
+                },
+                navigationIcon = {
+                    IconButton(onClick = { /*TODO*/ }) {
+                        Icon(imageVector = Icons.Filled.ArrowBack  , contentDescription = null )
+
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        LazyColumn (modifier = Modifier.padding(paddingValues)
+		 contentPadding = PaddingValues(
+                top = 16.dp,
+                start = 8.dp,
+                end = 8.dp,
+                bottom = 72.dp
+            )
+			) {
+            items(comments, key = {it.id }){
+                CommentItem(comment = it)
+            }
+        }
+
+    }
+}
+// Отдельная функция для одного комментария
+@Composable
+private fun CommentItem(comment: PostComment){
+    Row(modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp, vertical = 4.dp)){
+        Image(
+            modifier = Modifier.size(24.dp),
+            painter = painterResource(id = comment.authorAvatarId),
+            contentDescription = null
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column {
+            Text(
+                text = "${comment.authorName} CommentId: ${comment.id}",
+                color = MaterialTheme.colorScheme.onPrimary,
+                fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = comment.commentText,
+                color = MaterialTheme.colorScheme.onPrimary,
+                fontSize = 14.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = comment.publicationDate,
+                color = MaterialTheme.colorScheme.onSecondary,
+                fontSize = 12.sp)
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun commentPreview(){
+    VkNewsClientTheme {
+        CommentItem(comment = PostComment(0))
+    }
+}
+
+Тестировать будем в HomeScreen
+
+fun HomeScreen(
+    viewModel : MainViewModel,
+    paddingValues : PaddingValues
+){
+
+    val feedPostList = viewModel.feedPostList.observeAsState(initial = listOf())
+    val comments = mutableListOf<PostComment>().apply {
+        repeat(20){
+            add(PostComment(it))
+        }
+    }
+    CommentsScreen(feedPost = feedPostList.value[0],comments)
+	....
+	//остальное пока закомментируем

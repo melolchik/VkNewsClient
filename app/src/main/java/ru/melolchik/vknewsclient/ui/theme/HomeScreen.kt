@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ru.melolchik.vknewsclient.MainViewModel
+import ru.melolchik.vknewsclient.domain.PostComment
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -30,7 +31,13 @@ fun HomeScreen(
 ){
 
     val feedPostList = viewModel.feedPostList.observeAsState(initial = listOf())
-    LazyColumn(modifier = Modifier.padding(paddingValues),
+    val comments = mutableListOf<PostComment>().apply {
+        repeat(20){
+            add(PostComment(it))
+        }
+    }
+    CommentsScreen(feedPost = feedPostList.value[0],comments)
+   /* LazyColumn(modifier = Modifier.padding(paddingValues),
         contentPadding = PaddingValues(top = 16.dp, start = 8.dp, end = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -72,6 +79,6 @@ fun HomeScreen(
                 directions = setOf(DismissDirection.EndToStart))
 
         }
-    }
+    }*/
 
 }
