@@ -5,7 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.domain.StatisticItem
-import ru.melolchik.vknewsclient.ui.theme.NavigationItem
+import ru.melolchik.vknewsclient.ui.theme.HomeScreenState
 
 class MainViewModel : ViewModel() {
 
@@ -14,22 +14,24 @@ class MainViewModel : ViewModel() {
             add(FeedPost(it))
         }
     }
-    private val _feedPostList = MutableLiveData( initList.toList())
 
-    val feedPostList : LiveData<List<FeedPost>> = _feedPostList
+    private val initState = HomeScreenState.Posts(initList.toList())
+    private val _screenState = MutableLiveData<HomeScreenState>(initState)
+
+    val screenState : LiveData<HomeScreenState> = _screenState
 
     private fun List<FeedPost>.getItemById(id: Int) : FeedPost{
         return this.find{it.id == id} ?: throw IllegalArgumentException("FeedPost with id = $id not found!")
     }
 
     fun deleteItem(feedPost: FeedPost){
-        val oldList = _feedPostList.value?.toMutableList() ?: mutableListOf()
+        val oldList = _screenState.value?.toMutableList() ?: mutableListOf()
         oldList.remove(feedPost)
-        _feedPostList.value = oldList
+        _screenState.value = oldList
     }
 
     public fun updateStatistics(feedPost: FeedPost ,statisticItem: StatisticItem){
-        val feedPostItem = _feedPostList.value?.getItemById(feedPost.id) ?: throw IllegalArgumentException("FeedPost not found!")
+        val feedPostItem = _screenState.value?.getItemById(feedPost.id) ?: throw IllegalArgumentException("FeedPost not found!")
         val oldStatistics = feedPostItem.statistics
         val newStatistics = oldStatistics.toMutableList().apply {
             replaceAll { oldItem ->
@@ -41,7 +43,7 @@ class MainViewModel : ViewModel() {
             }
         }
         //val newFeedPostItem = feedPostItem.copy(statistics = newStatistics)
-        val newFeedPostList = _feedPostList.value?.toMutableList()?.apply {
+        val newFeedPostList = _screenState.value?.toMutableList()?.apply {
             replaceAll { oldItem ->
                 if(oldItem.id == feedPost.id){
                     oldItem.copy(statistics = newStatistics)
@@ -51,7 +53,7 @@ class MainViewModel : ViewModel() {
 
             }
         }
-        _feedPostList.value = newFeedPostList
+        _screenState.value = newFeedPostList
 
     }
 }

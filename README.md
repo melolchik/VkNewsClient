@@ -1509,3 +1509,113 @@ fun HomeScreen(
     CommentsScreen(feedPost = feedPostList.value[0],comments)
 	....
 	//остальное пока закомментируем
+	
+	
+#5.6 UDF и создание стейта
+
+Вернём HomeScreen - список постов
+
+Получается на HomeScreen может быть два состояния - Список постов и Список комментариев
+Плохое решение - добавить в ViewModel  список комментариев  и добавить ещё один стейт в HomeScreen
+Почему, - потому что одна Composable-функция MainScreen будет зависеть от двух разных состояний и нужно будет писать очень сложную логику
+Поэтому используется UDF-архитектура
+Unidirectinal Data Flow - однонаправленный поток данных
+Все события передаём ViewModel-из, ViewModel меняет стейт и отдаёт его Composable-функции
+
+Создадимотдельный класс, который будет представлять собой состояние экрана
+
+sealed class HomeScreenState {
+
+    data class Posts(val posts : List<FeedPost>) : HomeScreenState()
+    data class Comments(val feedPost: FeedPost, val comments : List<PostComment>) : HomeScreenState()
+}
+
+Теперь обновим ViewModel
+
+class MainViewModel : ViewModel() {
+
+    private val initList = mutableListOf<FeedPost>().apply {
+        repeat(10){
+            add(FeedPost(it))
+        }
+    }
+
+    private val initState = HomeScreenState.Posts(initList.toList())
+    private val _screenState = MutableLiveData<HomeScreenState>(initState)
+
+    val screenState : LiveData<HomeScreenState> = _screenState
+.... остальное исправим позже
+
+@Composable
+fun HomeScreen(
+    viewModel : MainViewModel,
+    paddingValues : PaddingValues
+){
+
+    val screenState = viewModel.screenState.observeAsState() <--- так мы можем иметь значение null. Хорошей практикой является создать Default state object Initial : HomeScreenState()
+
+    when(val currentState = screenState.value){
+        is HomeScreenState.Posts -> {
+            FeedPosts(posts = currentState.posts, viewModel = viewModel, paddingValues = paddingValues )
+        }
+        is HomeScreenState.Comments ->{
+            CommentsScreen(feedPost = currentState.feedPost, comments = currentState.comments)
+        }
+
+    }
+
+
+}
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun FeedPosts(
+    viewModel: MainViewModel,
+    paddingValues: PaddingValues,
+    posts: List<FeedPost>
+){
+    LazyColumn(modifier = Modifier.padding(paddingValues),
+        contentPadding = PaddingValues(top = 16.dp, start = 8.dp, end = 8.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        items(posts, key = {it.id }){ feedPost ->
+            val dismissState = rememberDismissState()
+
+            if(dismissState.isDismissed(DismissDirection.EndToStart)){
+                viewModel.deleteItem(feedPost)
+            }
+            SwipeToDismiss(
+                modifier = Modifier.animateItemPlacement(),
+                state = dismissState,
+                background = {
+                    Box(modifier = Modifier
+                        .padding(16.dp)
+                        .background(color = Color.Red.copy(alpha = 0.5f))
+                        .fillMaxSize(),
+                        contentAlignment = Alignment.CenterEnd
+                    ){
+                        Text(text = "Delete Item",
+                            modifier = Modifier.padding(16.dp),
+                            color = Color.White)
+                    }
+                },
+                dismissContent = {
+                    PostCard(modifier = Modifier,
+                        feedPost = feedPost,
+                        onViewsClickListener = { statisticItem ->
+                            viewModel.updateStatistics(feedPost,statisticItem) },
+                        onShareClickListener = { statisticItem ->
+                            viewModel.updateStatistics(feedPost,statisticItem) },
+                        onCommentsClickListener = { statisticItem ->
+                            viewModel.updateStatistics(feedPost,statisticItem) },
+                        onLikeClickListener = { statisticItem ->
+                            viewModel.updateStatistics(feedPost,statisticItem) }
+                    )
+
+                },
+                directions = setOf(DismissDirection.EndToStart))
+
+        }
+    }
+}
+
+Продолжим в следующем уроке

@@ -21,27 +21,42 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ru.melolchik.vknewsclient.MainViewModel
-import ru.melolchik.vknewsclient.domain.PostComment
+import ru.melolchik.vknewsclient.domain.FeedPost
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     viewModel : MainViewModel,
     paddingValues : PaddingValues
 ){
 
-    val feedPostList = viewModel.feedPostList.observeAsState(initial = listOf())
-    val comments = mutableListOf<PostComment>().apply {
-        repeat(20){
-            add(PostComment(it))
+    val screenState = viewModel.screenState.observeAsState(HomeScreenState.Initial)
+
+    when(val currentState = screenState.value){
+        is HomeScreenState.Posts -> {
+            FeedPosts(posts = currentState.posts, viewModel = viewModel, paddingValues = paddingValues )
+        }
+        is HomeScreenState.Comments ->{
+            CommentsScreen(feedPost = currentState.feedPost, comments = currentState.comments)
+        }
+        HomeScreenState.Initial -> {
+
         }
     }
-    CommentsScreen(feedPost = feedPostList.value[0],comments)
-   /* LazyColumn(modifier = Modifier.padding(paddingValues),
+
+
+}
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun FeedPosts(
+    viewModel: MainViewModel,
+    paddingValues: PaddingValues,
+    posts: List<FeedPost>
+){
+    LazyColumn(modifier = Modifier.padding(paddingValues),
         contentPadding = PaddingValues(top = 16.dp, start = 8.dp, end = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        items(feedPostList.value, key = {it.id }){ feedPost ->
+        items(posts, key = {it.id }){ feedPost ->
             val dismissState = rememberDismissState()
 
             if(dismissState.isDismissed(DismissDirection.EndToStart)){
@@ -79,6 +94,5 @@ fun HomeScreen(
                 directions = setOf(DismissDirection.EndToStart))
 
         }
-    }*/
-
+    }
 }
