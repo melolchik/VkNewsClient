@@ -1619,3 +1619,164 @@ private fun FeedPosts(
 }
 
 Продолжим в следующем уроке
+
+#5.7 Навигация на экран комментариев
+
+Доработаем ViewModel
+
+class MainViewModel : ViewModel() {
+
+    private val initList = mutableListOf<FeedPost>().apply {
+        repeat(10){
+            add(FeedPost(it))
+        }
+    }
+
+    private val initState = HomeScreenState.Posts(initList.toList())
+    private val _screenState = MutableLiveData<HomeScreenState>(initState)
+
+    val screenState : LiveData<HomeScreenState> = _screenState
+
+    private fun List<FeedPost>.getItemById(id: Int) : FeedPost{
+        return this.find{it.id == id} ?: throw IllegalArgumentException("FeedPost with id = $id not found!")
+    }
+
+    fun deleteItem(feedPost: FeedPost){
+        val currentState = screenState.value
+        if(currentState !is HomeScreenState.Posts){
+            return
+        }
+        val oldPosts = currentState.posts.toMutableList()
+        oldPosts.remove(feedPost)
+        _screenState.value = HomeScreenState.Posts(oldPosts)
+    }
+
+    public fun updateStatistics(feedPost: FeedPost ,statisticItem: StatisticItem){
+        val currentState = screenState.value
+        if(currentState !is HomeScreenState.Posts){
+            return
+        }
+        val oldPosts = currentState.posts.toMutableList()
+        val feedPostItem = oldPosts.getItemById(feedPost.id) 
+        val oldStatistics = feedPostItem.statistics
+        val newStatistics = oldStatistics.toMutableList().apply {
+            replaceAll { oldItem ->
+                if(oldItem.type == statisticItem.type){
+                    oldItem.copy(count = oldItem.count + 1)
+                }else{
+                    oldItem
+                }
+            }
+        }
+        //val newFeedPostItem = feedPostItem.copy(statistics = newStatistics)
+        val newFeedPostList = oldPosts.apply {
+            replaceAll { oldItem ->
+                if(oldItem.id == feedPost.id){
+                    oldItem.copy(statistics = newStatistics)
+                }else{
+                    oldItem
+                }
+
+            }
+        }
+        _screenState.value = HomeScreenState.Posts(newFeedPostList)
+
+    }
+}
+
+Теперь при клике на комментарий нужно открывать пост с комментариями
+
+Допишем ViewModel
+
+class MainViewModel : ViewModel() {
+
+    private val comments = mutableListOf<PostComment>().apply {
+        repeat(20){
+            add(PostComment(it))
+        }
+    }
+
+   ......
+
+    fun showComments(feedPost: FeedPost){
+        _screenState.value = HomeScreenState.Comments(feedPost, comments)
+    }
+	....
+	
+И вызовем showComments по клику на комменатрий в HomeScreen
+Всё работает
+Есть 2 проблемы
+1) Кнопка назад в комментарии
+2) Back системная закрывает приложение
+
+fun CommentsScreen(
+    feedPost: FeedPost,
+    comments: List<PostComment>,
+    onBackPressed : () -> Unit <--- перекинем наверх
+){
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(text = "Comments for FeedPost Id : ${feedPost.id}")
+                },
+                navigationIcon = {
+                    IconButton(onClick = {
+                        onBackPressed() <------------
+                    }) {
+                        Icon(imageVector = Icons.Filled.ArrowBack  , contentDescription = null )
+
+                    }
+                }
+            )
+        }
+    )
+	
+	..............
+	
+class MainViewModel : ViewModel() {
+
+    
+    val screenState : LiveData<HomeScreenState> = _screenState
+
+    private var savedState :HomeScreenState? = initState <--- храним предыдущее состояние
+
+    fun showComments(feedPost: FeedPost){
+        savedState = _screenState.value <---- save previos
+        _screenState.value = HomeScreenState.Comments(feedPost, comments)
+    }
+
+    fun closeComments(){ <---- возвращаемся к предыдущему состоянию
+        _screenState.value = savedState
+    }
+	.....................
+	
+	
+fun HomeScreen(
+    viewModel : MainViewModel,
+    paddingValues : PaddingValues
+){
+
+    val screenState = viewModel.screenState.observeAsState(HomeScreenState.Initial)
+
+    when(val currentState = screenState.value){
+        is HomeScreenState.Posts -> {
+            FeedPosts(posts = currentState.posts, viewModel = viewModel, paddingValues = paddingValues )
+        }
+        is HomeScreenState.Comments ->{
+            CommentsScreen(feedPost = currentState.feedPost, comments = currentState.comments){
+                viewModel.closeComments() <--- close при нажатии на кнопу на экране
+            }
+            BackHandler { <--- обработка системной кнопки Back только в состоянии Comments!!!
+                viewModel.closeComments()
+            }
+        }
+        HomeScreenState.Initial -> {
+
+        }
+    }
+
+
+}
+
+Есть проблема - не сохраняется state первого экрана, т.к. Composable-функция пересоздаётся. Этот момент исправим в будущем!
