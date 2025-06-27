@@ -50,7 +50,9 @@ import kotlinx.coroutines.launch
 import ru.melolchik.vknewsclient.MainViewModel
 import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.navigation.AppNavGraph
+import ru.melolchik.vknewsclient.navigation.NavigationState
 import ru.melolchik.vknewsclient.navigation.Screen
+import ru.melolchik.vknewsclient.navigation.rememberNavigateState
 
 fun log(text : String){
     Log.d("COMPOSE_TEST", text)
@@ -58,26 +60,22 @@ fun log(text : String){
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel){
-    val navHostController = rememberNavController()
+
+    val navigationState = rememberNavigateState()
+
     Scaffold (
         bottomBar = {
             NavigationBar {
 
 
                 val items = listOf(NavigationItem.Home,NavigationItem.Favorite,NavigationItem.Profile)
-                val navBackStackEntry by navHostController.currentBackStackEntryAsState()
+                val navBackStackEntry by navigationState.navHostController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
                 items.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = currentRoute == item.screen.route,
                         onClick = {
-                                navHostController.navigate(item.screen.route){
-                                    popUpTo(Screen.NewsFeed.route){
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
+                                    navigationState.navigateTo(item.screen.route)
                                   },
                         icon = {
                         Icon(imageVector = item.icon, contentDescription = null)
@@ -98,7 +96,7 @@ fun MainScreen(viewModel: MainViewModel){
     ){ paddingValues ->
         
         AppNavGraph(
-            navHostController = navHostController,
+            navHostController = navigationState.navHostController,
             homeScreenContent = {
                 HomeScreen(viewModel = viewModel, paddingValues = paddingValues)
                                 },

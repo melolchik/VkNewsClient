@@ -1292,3 +1292,110 @@ public class NavOptionsBuilder {
                                 }
 								
 Обратить внимание!! Стейт не сохраниться если экран удалить из бэкстека нажав Назад!
+
+#5.4 Рефакторинг навигации. RememberNavigationState
+Сейчас навигация работает корректно, но при этом реализована полностью в MainScreen
+Поэтому вынесем работу с navController в отдельный класс
+
+
+class NavigationState(val navHostController: NavHostController) {
+    
+    fun navigateTo(route : String){
+        navHostController.navigate(route){
+            popUpTo(Screen.NewsFeed.route){ <--- заменяем на popUpTo(navHostController.graph.startDestinationId)
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun MainScreen(viewModel: MainViewModel){
+
+    val navController = rememberNavController() <----
+    
+    val navigationState = remember { <----- remember ==  этот объект не пересоздаётся при рекомпозиции!!
+        NavigationState(navController)
+    }
+  
+    Scaffold (
+        bottomBar = {
+            NavigationBar {
+
+
+                val items = listOf(NavigationItem.Home,NavigationItem.Favorite,NavigationItem.Profile)
+                val navBackStackEntry by navigationState.navHostController.currentBackStackEntryAsState() <----
+                val currentRoute = navBackStackEntry?.destination?.route
+                items.forEachIndexed { index, item ->
+                    NavigationBarItem(
+                        selected = currentRoute == item.screen.route,
+                        onClick = {
+                                    navigationState.navigateTo(item.screen.route) <----
+                                  },
+                        icon = {
+                        Icon(imageVector = item.icon, contentDescription = null)
+                        },
+                        label = {
+                            Text(text = stringResource(id = item.titleResId))
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSecondary,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSecondary)
+                    )
+                }
+            }
+        }
+
+    ){ paddingValues ->
+        
+        AppNavGraph(
+            navHostController = navigationState.navHostController, <----
+            homeScreenContent = {
+                HomeScreen(viewModel = viewModel, paddingValues = paddingValues)
+                                },
+            favoriteScreenContent = {
+                TextCounter(text = "Favorite")
+            },
+            profileScreenContent = {
+                TextCounter(text = "Profile")
+            })
+    }
+}
+
+Но это ещё не всё! Далее
+
+В файле NavigationState создаём функцию
+
+@Composable
+fun rememberNavigateState(
+    navHostController: NavHostController = rememberNavController()
+) : NavigationState{
+    return remember {
+        NavigationState(navHostController)
+    }
+}
+
+И в MainScreen меняем
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun MainScreen(viewModel: MainViewModel){
+
+    val navigationState = rememberNavigateState()
+	.....
+	
+Документация:
+
+/**
+ * Remember the value produced by [calculation]. [calculation] will only be evaluated during the
+ * composition. Recomposition will always return the value produced by composition.
+ */
+@Composable
+inline fun <T> remember(crossinline calculation: @DisallowComposableCalls () -> T): T =
+    currentComposer.cache(false, calculation)
