@@ -1780,3 +1780,240 @@ fun HomeScreen(
 }
 
 Есть проблема - не сохраняется state первого экрана, т.к. Composable-функция пересоздаётся. Этот момент исправим в будущем!
+
+#5.8 Рефакторинг VIewModels
+Разделим ViewModel - и для двух экранов - для News и для Comments
+
+Переименуем MainViewModel в NewsFeedViewModel и уберём функциональность с комментариями уберём.
+Также переименуем стейт
+
+class NewsFeedViewModel : ViewModel() {
+
+  
+    private val initList = mutableListOf<FeedPost>().apply {
+        repeat(10){
+            add(FeedPost(it))
+        }
+    }
+
+    private val initState = NewsFeedScreenState.Posts(initList.toList())
+    private val _screenState = MutableLiveData<NewsFeedScreenState>(initState)
+
+    val screenState : LiveData<NewsFeedScreenState> = _screenState
+
+    
+    private fun List<FeedPost>.getItemById(id: Int) : FeedPost{
+        return this.find{it.id == id} ?: throw IllegalArgumentException("FeedPost with id = $id not found!")
+    }
+
+    fun deleteItem(feedPost: FeedPost){
+        val currentState = screenState.value
+        if(currentState !is NewsFeedScreenState.Posts){
+            return
+        }
+        val oldPosts = currentState.posts.toMutableList()
+        oldPosts.remove(feedPost)
+        _screenState.value = NewsFeedScreenState.Posts(oldPosts)
+    }
+
+    public fun updateStatistics(feedPost: FeedPost ,statisticItem: StatisticItem){
+        val currentState = screenState.value
+        if(currentState !is NewsFeedScreenState.Posts){
+            return
+        }
+        val oldPosts = currentState.posts.toMutableList()
+        val feedPostItem = oldPosts.getItemById(feedPost.id)
+        val oldStatistics = feedPostItem.statistics
+        val newStatistics = oldStatistics.toMutableList().apply {
+            replaceAll { oldItem ->
+                if(oldItem.type == statisticItem.type){
+                    oldItem.copy(count = oldItem.count + 1)
+                }else{
+                    oldItem
+                }
+            }
+        }
+        //val newFeedPostItem = feedPostItem.copy(statistics = newStatistics)
+        val newFeedPostList = oldPosts.apply {
+            replaceAll { oldItem ->
+                if(oldItem.id == feedPost.id){
+                    oldItem.copy(statistics = newStatistics)
+                }else{
+                    oldItem
+                }
+
+            }
+        }
+        _screenState.value = NewsFeedScreenState.Posts(newFeedPostList)
+
+    }
+}
+
+Для страницы комментариев создадим свой стейт и свою ViewModel
+
+
+sealed class NewsFeedScreenState {
+
+    object Initial : NewsFeedScreenState()
+    data class Posts(val posts : List<FeedPost>) : NewsFeedScreenState()
+}
+
+sealed class CommentsScreenState {
+
+    object Initial : CommentsScreenState()
+    data class Comments(val feedPost: FeedPost, val comments : List<PostComment>) : CommentsScreenState()
+}
+
+class CommentsViewModel : ViewModel() {
+
+    private val _screenState = MutableLiveData<CommentsScreenState>(CommentsScreenState.Initial)
+
+    val screenState : LiveData<CommentsScreenState> = _screenState
+
+    init{
+        loadComments(FeedPost(0)) <--- временное решение для проверки работоспособности
+    }
+    fun loadComments(feedPost: FeedPost){
+        val comments = mutableListOf<PostComment>().apply {
+            repeat(20){
+                add(PostComment(it))
+            }
+        }
+        _screenState.value = CommentsScreenState.Comments(feedPost, comments)
+    }
+
+}
+
+Теперь ViewModel-и нужно передать в соответствующие Composable-функции
+Один из вариантов загрузить их в MainActivity, но со временем их может стать очень много, поэтому это неудобно. Это плохое решение.
+На самом деле есть возможность создать экземпляр ViewModel внутри Composable-функции
+
+Создадим экземляр NewsFeedViewModel прямо внутри HomeScreen:
+ !!!!  val viewModel = ViewModelProvider(LocalViewModelStoreOwner.current!!)[NewsFeedViewModel::class.java] 
+ 
+ Но получается довольно громостко, и есть способо намного проще. Для начала нужно подключить библиотеку
+ 
+ "androidx.lifecycle::lifecycle-viewmodel-compose:2.5.1
+ 
+ Теперь создать ViewModel можно так
+ 
+ val viewModel : NewsFeedViewModel = viewModel() <--- самое главное указать тип ViewModel-и
+ 
+ 
+ 
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CommentsScreen(
+    onBackPressed : () -> Unit
+){
+    val viewModel: CommentsViewModel = viewModel() 
+    val screenState = viewModel.screenState.observeAsState(initial = CommentsScreenState.Initial)
+    val currentState = screenState.value
+    if(currentState is CommentsScreenState.Comments) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(text = "Comments for FeedPost Id : ${currentState.feedPost.id}")
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            onBackPressed()
+                        }) {
+                            Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = null)
+
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
+            LazyColumn(
+                modifier = Modifier.padding(paddingValues),
+                contentPadding = PaddingValues(
+                    top = 16.dp,
+                    start = 8.dp,
+                    end = 8.dp,
+                    bottom = 72.dp
+                )
+            ) {
+                items(currentState.comments, key = { it.id }) {
+                    CommentItem(comment = it)
+                }
+            }
+
+        }
+    }
+}
+
+Пока мы пишем так,чтобы приложение было работоспособным
+В MainScreen добавим стейт - commentsToPost: Если он нулевой показываем посты, если нет - комментарии
+
+@Composable
+fun MainScreen(){
+
+    val navigationState = rememberNavigateState()
+
+    val commentsToPost = remember { <-------------------
+        mutableStateOf<FeedPost?>(null)
+    }
+
+    Scaffold (
+        bottomBar = {
+            NavigationBar {
+
+
+                val items = listOf(NavigationItem.Home,NavigationItem.Favorite,NavigationItem.Profile)
+                val navBackStackEntry by navigationState.navHostController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
+                items.forEachIndexed { index, item ->
+                    NavigationBarItem(
+                        selected = currentRoute == item.screen.route,
+                        onClick = {
+                                    navigationState.navigateTo(item.screen.route)
+                                  },
+                        icon = {
+                        Icon(imageVector = item.icon, contentDescription = null)
+                        },
+                        label = {
+                            Text(text = stringResource(id = item.titleResId))
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSecondary,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSecondary)
+                    )
+                }
+            }
+        }
+
+    ){ paddingValues ->
+        
+        AppNavGraph(
+            navHostController = navigationState.navHostController,
+            homeScreenContent = { <------------------
+                if(commentsToPost.value == null) {
+                    HomeScreen(paddingValues = paddingValues) {
+                        commentsToPost.value = it <-------------
+                    }
+                }else{
+                    CommentsScreen {
+                        commentsToPost.value = null <----------------
+                    }
+                }
+                BackHandler {
+                    commentsToPost.value = null <---------------
+                }
+            },
+            favoriteScreenContent = {
+                TextCounter(text = "Favorite")
+            },
+            profileScreenContent = {
+                TextCounter(text = "Profile")
+            })
+    }
+}
+
+Продолжение в следующем уроке....
+ 
