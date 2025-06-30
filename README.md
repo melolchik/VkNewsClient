@@ -2102,3 +2102,58 @@ fun CommentsScreen(
 					
 Рефакторинг и подготовка закончены, в след.уроке начнём делать навигацию к экрану Comments с использованием Jetpack Compose Navigation
 
+Из комментаривев к уроку:
+
+Проблема: При открытии комментариев всегда вызывается один и тот же FeedPost, который инициализирован один раз
+Решение :
+
+@Composable
+fun CommentsScreen(
+    onBackPressed : () -> Unit,
+    feedPost: FeedPost
+){
+    val viewModel: CommentsViewModel = viewModel(
+        factory = CommentsViewModalFactory(feedPost)
+    )
+
+    val screenState = viewModel.screenState.observeAsState(initial = CommentsScreenState.Initial)
+    val currentState = screenState.value
+
+    val viewModelCurentState = LocalViewModelStoreOwner.current?.viewModelStore <----
+    if(currentState is CommentsScreenState.Comments) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(text = "Comments for FeedPost Id : ${currentState.feedPost.id}")
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            viewModelCurentState?.clear() <---- чистить стейт если он есть!
+                            onBackPressed()
+                        }) {
+                            Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = null)
+
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
+            LazyColumn(
+                modifier = Modifier.padding(paddingValues),
+                contentPadding = PaddingValues(
+                    top = 16.dp,
+                    start = 8.dp,
+                    end = 8.dp,
+                    bottom = 72.dp
+                )
+            ) {
+                items(currentState.comments, key = { it.id }) {
+                    CommentItem(comment = it)
+                }
+            }
+
+        }
+    }
+}
+

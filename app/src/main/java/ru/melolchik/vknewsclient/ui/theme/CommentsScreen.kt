@@ -28,6 +28,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.melolchik.vknewsclient.CommentsViewModalFactory
 import ru.melolchik.vknewsclient.CommentsViewModel
@@ -47,6 +48,8 @@ fun CommentsScreen(
 
     val screenState = viewModel.screenState.observeAsState(initial = CommentsScreenState.Initial)
     val currentState = screenState.value
+
+    val viewModelCurentState = LocalViewModelStoreOwner.current?.viewModelStore
     if(currentState is CommentsScreenState.Comments) {
         Scaffold(
             topBar = {
@@ -56,6 +59,7 @@ fun CommentsScreen(
                     },
                     navigationIcon = {
                         IconButton(onClick = {
+                            viewModelCurentState?.clear()
                             onBackPressed()
                         }) {
                             Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = null)
