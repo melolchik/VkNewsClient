@@ -29,6 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ru.melolchik.vknewsclient.CommentsViewModalFactory
 import ru.melolchik.vknewsclient.CommentsViewModel
 import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.domain.PostComment
@@ -37,9 +38,13 @@ import ru.melolchik.vknewsclient.domain.PostComment
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommentsScreen(
-    onBackPressed : () -> Unit
+    onBackPressed : () -> Unit,
+    feedPost: FeedPost
 ){
-    val viewModel: CommentsViewModel = viewModel()
+    val viewModel: CommentsViewModel = viewModel(
+        factory = CommentsViewModalFactory(feedPost)
+    )
+
     val screenState = viewModel.screenState.observeAsState(initial = CommentsScreenState.Initial)
     val currentState = screenState.value
     if(currentState is CommentsScreenState.Comments) {

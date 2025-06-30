@@ -9,16 +9,16 @@ import ru.melolchik.vknewsclient.domain.StatisticItem
 import ru.melolchik.vknewsclient.ui.theme.CommentsScreenState
 import ru.melolchik.vknewsclient.ui.theme.NewsFeedScreenState
 
-class CommentsViewModel : ViewModel() {
+class CommentsViewModel(val feedPost: FeedPost) : ViewModel() {
 
     private val _screenState = MutableLiveData<CommentsScreenState>(CommentsScreenState.Initial)
 
     val screenState : LiveData<CommentsScreenState> = _screenState
 
     init{
-        loadComments(FeedPost(0))
+        loadComments(feedPost)
     }
-    fun loadComments(feedPost: FeedPost){
+    private fun loadComments(feedPost: FeedPost){
         val comments = mutableListOf<PostComment>().apply {
             repeat(20){
                 add(PostComment(it))

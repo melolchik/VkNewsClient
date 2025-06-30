@@ -2017,3 +2017,88 @@ fun MainScreen(){
 
 Продолжение в следующем уроке....
  
+ #5.9 Передача параметров во вью-модель. ViewModelFactory
+ 
+ Нужно передать feedPost в CommentsViewModel
+ 
+ Если делать вот так
+ 
+ @Composable
+fun CommentsScreen( <-- зависит от стейта ViewModel-и а его стейт меняет функция loadComments
+    onBackPressed : () -> Unit
+){
+    val viewModel: CommentsViewModel = viewModel()
+    
+    viewModel.loadComments() 
+	
+То после загрузки и смены состояния будет происходить рекомпозиция и функция loadComments будет вызываться занова - Side Effect!!
+
+Вот так  viewModel.loadComments(FeedPost()) загрузка будет конечной, т.к. стейт постоянный, т.к. FeedPost является data классом и у него переопределены equal и hash
+А если FeedPost сделать не data классом, то стейт будет меняться и загрузка/рекомпозиция зациклятся
+
+ПОЭТОМУ ТАК ДЕЛАТЬ НЕ СТОИТ
+РЕШЕНИЕ:
+
+Передадим FeedPost прямо в конструктор ViewModel-и
+
+class CommentsViewModel(val feedPost: FeedPost) : ViewModel() { <--------------------
+
+    private val _screenState = MutableLiveData<CommentsScreenState>(CommentsScreenState.Initial)
+
+    val screenState : LiveData<CommentsScreenState> = _screenState
+
+    init{
+        loadComments(feedPost) <----------------
+    }
+    private fun loadComments(feedPost: FeedPost){
+        val comments = mutableListOf<PostComment>().apply {
+            repeat(20){
+                add(PostComment(it))
+            }
+        }
+        _screenState.value = CommentsScreenState.Comments(feedPost, comments)
+    }
+
+}
+
+Далее FeedPost передадим как параметр в CommentsScreen
+
+@Composable
+fun CommentsScreen(
+    onBackPressed : () -> Unit,
+    feedPost: FeedPost <---------------
+){
+....
+И тепепрь передадим его во ViewModel через ViewModelFactory
+
+Создадим вспомогательный класс CommentsViewModalFactory
+
+class CommentsViewModalFactory(private val feedPost: FeedPost) : ViewModelProvider.Factory{
+
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        return CommentsViewModel(feedPost) as T
+    }
+}
+
+Создаём ViewModel c параметром:
+
+fun CommentsScreen(
+    onBackPressed : () -> Unit,
+    feedPost: FeedPost
+){
+    val viewModel: CommentsViewModel = viewModel(
+        factory = CommentsViewModalFactory(feedPost)
+    )
+	.....
+	
+}
+
+передаём параметр в CommentsScreen
+
+ CommentsScreen (
+                        onBackPressed = {commentsToPost.value = null},
+                        feedPost = commentsToPost.value!!
+                    )
+					
+Рефакторинг и подготовка закончены, в след.уроке начнём делать навигацию к экрану Comments с использованием Jetpack Compose Navigation
+
