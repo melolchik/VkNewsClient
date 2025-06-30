@@ -2157,3 +2157,152 @@ fun CommentsScreen(
     }
 }
 
+
+#5.10 Nested Graph Navigation
+Получается в первой вкладке будет свой граф навигации - вложенная навигация
+
+Добавляем скрины
+
+sealed class Screen(val route: String) {
+
+    object NewsFeed : Screen(ROUTE_NEWS_FEED)
+    object Favorite : Screen(ROUTE_FAVORITE)
+    object Profile : Screen(ROUTE_PROFILE)
+    
+    object Home : Screen(ROUTE_HOME) <---------------- вложенный граф навигации, в котором будет два экрана NEWS_FEED и COMMENTS
+    object Comments : Screen(ROUTE_COMMENTS) <--------------
+
+
+    private companion object {
+        const val ROUTE_HOME = "home" <--------------
+        const val ROUTE_COMMENTS = "comments"    <--------------     
+        const val ROUTE_NEWS_FEED = "news_feed"
+        const val ROUTE_FAVORITE = "favorite"
+        const val ROUTE_PROFILE = "profile"
+       
+    }
+}
+
+Идём в AppNavGraph
+
+@Composable
+fun AppNavGraph(navHostController: NavHostController,
+                homeScreenContent : @Composable () -> Unit,
+                favoriteScreenContent : @Composable () -> Unit,
+                profileScreenContent : @Composable ()-> Unit,
+                commentScreenContent : @Composable () -> Unit <---------------
+){
+    NavHost(
+        navController = navHostController,
+        startDestination = Screen.NewsFeed.route
+        ){
+ //       composable(Screen.NewsFeed.route){
+ //               homeScreenContent()
+ //           }
+        
+        navigation( <--- вместо composable используем navigation!
+            startDestination = Screen.NewsFeed.route, //стартовый экрна в новом графе навигации
+            route = Screen.Home.route				//имя вложенного графа навигации
+        ){<------------------- билдер = экраны во вложенном графе навигации
+            composable(Screen.NewsFeed.route){
+                homeScreenContent()
+            }
+            composable(Screen.Comments.route){
+                commentScreenContent() <--- передаём в качестве параметра
+            }
+        }
+
+        composable(Screen.Favorite.route){
+            favoriteScreenContent()
+        }
+
+        composable(Screen.Profile.route){
+            profileScreenContent()
+        }
+    }
+
+}
+
+Обычно если несколько графов навигации, то каждый из них выводится в отдельную функцию
+
+Переносим navigation в отдельную extantion функцию
+
+
+fun NavGraphBuilder.homeScreenNavGraph(
+    newsFeedScreenContent: @Composable () -> Unit,
+    commentsScreenContent: @Composable () -> Unit
+) {
+    navigation(
+        startDestination = Screen.NewsFeed.route,
+        route = Screen.Home.route
+    ) {
+        composable(Screen.NewsFeed.route) {
+            newsFeedScreenContent()
+        }
+        composable(Screen.Comments.route) {
+            commentsScreenContent()
+        }
+    }
+}
+
+AppNavGraph будет выгладеть так
+
+@Composable
+fun AppNavGraph(navHostController: NavHostController,
+                newsFeedScreenContent : @Composable () -> Unit,
+                favoriteScreenContent : @Composable () -> Unit,
+                profileScreenContent : @Composable ()-> Unit,
+                commentsScreenContent : @Composable () -> Unit
+){
+    NavHost(
+        navController = navHostController,
+        startDestination = Screen.NewsFeed.route <---------------- позже надо будет поменять
+        ){
+
+
+       homeScreenNavGraph(
+           newsFeedScreenContent = newsFeedScreenContent,
+           commentsScreenContent = commentsScreenContent)
+
+        composable(Screen.Favorite.route){
+            favoriteScreenContent()
+        }
+
+        composable(Screen.Profile.route){
+            profileScreenContent()
+        }
+    }
+
+}
+
+Теперь в VkNewsMainScreen правим граф
+
+ AppNavGraph(
+            navHostController = navigationState.navHostController,
+            newsFeedScreenContent = {
+                HomeScreen(paddingValues = paddingValues) {
+                    commentsToPost.value = it
+                    navigationState.navigateTo(Screen.Comments.route) <---- вызываем comment screen
+                }
+
+            },
+            commentsScreenContent = {
+                CommentsScreen(
+                    onBackPressed = { commentsToPost.value = null },
+                    feedPost = commentsToPost.value!!
+                )
+            },
+            favoriteScreenContent = {
+                TextCounter(text = "Favorite")
+            },
+            profileScreenContent = {
+                TextCounter(text = "Profile")
+            })
+    }
+ Запускаем в таком виде и приложение падает с ошибкой
+ 
+ java.lang.IllegalArgumentException: navigation destination news_feed is not a direct child of this NavGraph
+ 
+ Нужно исправить startDestination = Screen.Home.route
+ 
+ Сейчасмножество багов , с ними будем разбираться дальше

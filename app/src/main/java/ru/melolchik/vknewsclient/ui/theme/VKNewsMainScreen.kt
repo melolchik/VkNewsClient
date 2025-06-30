@@ -26,14 +26,16 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import ru.melolchik.vknewsclient.NewsFeedViewModel
 import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.navigation.AppNavGraph
+import ru.melolchik.vknewsclient.navigation.Screen
 import ru.melolchik.vknewsclient.navigation.rememberNavigateState
 
-fun log(text : String){
+fun log(text: String) {
     Log.d("COMPOSE_TEST", text)
 }
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun MainScreen(){
+fun MainScreen() {
 
     val navigationState = rememberNavigateState()
 
@@ -41,22 +43,23 @@ fun MainScreen(){
         mutableStateOf<FeedPost?>(null)
     }
 
-    Scaffold (
+    Scaffold(
         bottomBar = {
             NavigationBar {
 
 
-                val items = listOf(NavigationItem.Home,NavigationItem.Favorite,NavigationItem.Profile)
+                val items =
+                    listOf(NavigationItem.Home, NavigationItem.Favorite, NavigationItem.Profile)
                 val navBackStackEntry by navigationState.navHostController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
                 items.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = currentRoute == item.screen.route,
                         onClick = {
-                                    navigationState.navigateTo(item.screen.route)
-                                  },
+                            navigationState.navigateTo(item.screen.route)
+                        },
                         icon = {
-                        Icon(imageVector = item.icon, contentDescription = null)
+                            Icon(imageVector = item.icon, contentDescription = null)
                         },
                         label = {
                             Text(text = stringResource(id = item.titleResId))
@@ -65,30 +68,29 @@ fun MainScreen(){
                             selectedIconColor = MaterialTheme.colorScheme.onPrimary,
                             selectedTextColor = MaterialTheme.colorScheme.onPrimary,
                             unselectedIconColor = MaterialTheme.colorScheme.onSecondary,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSecondary)
+                            unselectedTextColor = MaterialTheme.colorScheme.onSecondary
+                        )
                     )
                 }
             }
         }
 
-    ){ paddingValues ->
-        
+    ) { paddingValues ->
+
         AppNavGraph(
             navHostController = navigationState.navHostController,
-            homeScreenContent = {
-                if(commentsToPost.value == null) {
-                    HomeScreen(paddingValues = paddingValues) {
-                        commentsToPost.value = it
-                    }
-                }else{
-                    CommentsScreen (
-                        onBackPressed = {commentsToPost.value = null},
-                        feedPost = commentsToPost.value!!
-                    )
+            newsFeedScreenContent = {
+                HomeScreen(paddingValues = paddingValues) {
+                    commentsToPost.value = it
+                    navigationState.navigateTo(Screen.Comments.route)
                 }
-                BackHandler {
-                    commentsToPost.value = null
-                }
+
+            },
+            commentsScreenContent = {
+                CommentsScreen(
+                    onBackPressed = { commentsToPost.value = null },
+                    feedPost = commentsToPost.value!!
+                )
             },
             favoriteScreenContent = {
                 TextCounter(text = "Favorite")
@@ -100,13 +102,15 @@ fun MainScreen(){
 }
 
 @Composable
-fun TextCounter(text : String){
+fun TextCounter(text: String) {
     var count by rememberSaveable {
         mutableStateOf(0)
     }
-    Text(modifier = Modifier
-        .padding(16.dp)
-        .clickable { count++ },
+    Text(
+        modifier = Modifier
+            .padding(16.dp)
+            .clickable { count++ },
         text = "Name = $text count = $count",
-        color = MaterialTheme.colorScheme.onPrimary)
+        color = MaterialTheme.colorScheme.onPrimary
+    )
 }
