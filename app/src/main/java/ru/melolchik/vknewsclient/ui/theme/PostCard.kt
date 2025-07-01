@@ -172,7 +172,7 @@ private fun PostHeader(feedPost: FeedPost) {
 
         ) {
             Text(
-                text = feedPost.comunityName,
+                text = feedPost.comunityName + " id = " + feedPost.id,
                 color = MaterialTheme.colorScheme.onPrimary
             )
             Spacer(modifier = Modifier.height(4.dp))

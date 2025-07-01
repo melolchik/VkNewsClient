@@ -1268,6 +1268,11 @@ public class NavOptionsBuilder {
 	.....
 Решено! 
 
+onClick = {
+                                navHostController.navigate(item.screen.route){                                   
+                                    launchSingleTop = true
+                                }
+								
 3) При множестве переходов между экранами хранится весь бэкстек
 
 Здесь несколько решений. Лучшее от google - из бэкстека удаляются все экраны между тем который перешли и стартовым
@@ -2306,3 +2311,165 @@ fun AppNavGraph(navHostController: NavHostController,
  Нужно исправить startDestination = Screen.Home.route
  
  Сейчасмножество багов , с ними будем разбираться дальше
+ 
+ #5.11 Fix navigation bugs
+ 
+ 1) Если находимся на экране комментариев,то все иконки табов неактивные, т.к.
+ 
+  NavigationBarItem(
+                        selected = currentRoute == item.screen.route,
+                        onClick = {
+                            navigationState.navigateTo(item.screen.route)
+                        },
+	а текущий route = "comments"
+	Решение:
+	
+sealed class NavigationItem(
+    val screen: Screen,
+    val titleResId : Int,
+    val icon: ImageVector
+){
+    object Home : NavigationItem (Screen.NewsFeed,R.string.navigation_item_main, Icons.Outlined.Home) <--- меняем на Screen.Home
+    object Favorite : NavigationItem (Screen.Favorite,R.string.navigation_item_favourite, Icons.Outlined.Favorite)
+    object Profile : NavigationItem (Screen.Profile,R.string.navigation_item_profile, Icons.Outlined.Person)
+}
+
+Далее. У пункта "Главная" свой вложенный граф. "Главная" нужно считать отмеченным, если экран, который сейчас отображается, находится в той же иерархии, что и route, 
+который закреплён за данным элементом списка 
+
+ Scaffold(
+        bottomBar = {
+            NavigationBar {
+                val items =
+                    listOf(NavigationItem.Home, NavigationItem.Favorite, NavigationItem.Profile)
+                val navBackStackEntry by navigationState.navHostController.currentBackStackEntryAsState() <--- состояние стека на верху
+               
+                items.forEachIndexed { index, item ->
+//                    log("item = ${item.screen.route}")
+//                    navBackStackEntry?.destination?.hierarchy?.forEach { <---hierarchy текущего состояния
+//                        log("hierarchy item = ${it.route}")
+//                    }
+                    val selected = navBackStackEntry?.destination?.hierarchy?.any { <---------------------
+                        it.route == item.screen.route                              <----------------------
+                    } ?: false
+                    NavigationBarItem(
+                        selected = selected,
+                        onClick = {
+                            navigationState.navigateTo(item.screen.route)
+                        },
+						.............
+Иерархия:
+
+Наш граф  				Home				Favorite				Profile
+				NewsFeed	Comments 
+				
+Для состояния NewsFeed hierarchy = [NewsFeed , Home, null]
+Для состояния comments  = [Comments, Home, null]
+Для Home = [Home, null]
+Для Favorite = [Favorite, null]
+
+/**
+         * Provides a sequence of the NavDestination's hierarchy. The hierarchy starts with this
+         * destination itself and is then followed by this destination's [NavDestination.parent],
+         * then that graph's parent, and up the hierarchy until you've reached the root navigation
+         * graph.
+         */
+        @JvmStatic
+        public val NavDestination.hierarchy: Sequence<NavDestination>
+            get() = generateSequence(this) { it.parent }
+			
+2) Переход на стартовый экран
+
+class NavigationState(val navHostController: NavHostController) {
+
+    fun navigateTo(route : String){
+        navHostController.navigate(route){
+            popUpTo(navHostController.graph.startDestinationId){ <--- проблема здесь, так как стартовый экран является вложенным. 
+                saveState = true									//Этот метод работает только если стартовым является простой экран, а не граф
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+}
+
+Меняем на 
+
+class NavigationState(val navHostController: NavHostController) {
+
+    fun navigateTo(route : String){
+        navHostController.navigate(route){
+            popUpTo(navHostController.graph.findStartDestination().id){ <----------
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+}
+
+Если перейти в реализацию
+
+ /**
+         * Finds the actual start destination of the graph, handling cases where the graph's
+         * starting destination is itself a NavGraph.
+         *
+         * @return the actual startDestination of the given graph.
+         */
+        @JvmStatic
+        public fun NavGraph.findStartDestination(): NavDestination = childHierarchy().last()
+		
+3) При нажатии на кнопку "Назада" в коментариях приложение падает
+
+commentsScreenContent = {
+                CommentsScreen(
+                    onBackPressed = { commentsToPost.value = null }, <-- падает здесь
+                    feedPost = commentsToPost.value!!
+                )
+            },
+Дело в том, что функция зависит от стейта commentsToPost, по бэку мы его меняем на null, происходит рекомпозиция CommentsScreen, а там стоит !!
+Поменяем эту реализацию на:
+
+ commentsScreenContent = {
+                CommentsScreen(
+                    onBackPressed = {
+                        navigationState.navHostController.popBackStack() <-- удаляем верхний экран их стека
+                                    },
+                    feedPost = commentsToPost.value!!
+                )
+            },
+4) Находясь на главном экране нажимаем комментарии. Далее снова нижнее меню "Главная" и переходим на FeedPosts.Желательно, чтобы при нажатии на выбранный пункт, ничего не менялось
+
+Здесь всё просто
+
+NavigationBarItem(
+                        selected = selected,
+                        onClick = {
+                            if(!selected) { <--- добавляем проверку
+                                navigationState.navigateTo(item.screen.route)
+                            }
+                        },
+						
+5) Если мы находимся на экране комментариев, затем переходим на другую вкладку, возвращаемся на "Главную" , то переходим к списку постов, т.е. стейт сбрасывается
+
+Проблема здесь
+
+class NavigationState(val navHostController: NavHostController) {
+
+    fun navigateTo(route : String){
+        navHostController.navigate(route){
+            popUpTo(navHostController.graph.findStartDestination().id){
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+}
+Если мы перемещаемся по табам, то у нас выкидываются из бэкстека все экраны до главного
+Но мы не хотели бы,чтобы экран комментариев из графа выбраслывался. Сделаем для комментариев отдельный метод
+
+
+fun navigateToComment(){
+        navHostController.navigate(Screen.Comments.route)
+    }
