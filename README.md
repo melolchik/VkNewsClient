@@ -2473,3 +2473,143 @@ class NavigationState(val navHostController: NavHostController) {
 fun navigateToComment(){
         navHostController.navigate(Screen.Comments.route)
     }
+	
+#5.12 Передача параметров в JetpackNavigation. Часть 1. Передача Id
+
+Сейчас feedPost в comment передаётся через mutableStateOf. Переделаем это
+ Передадим FeedPost в navigateToComment
+ Сегодня научимся передавать только id этого объекта
+ 
+ 
+ fun navigateToComment(feedPost : FeedPost){
+        navHostController.navigate(Screen.Comments.route)
+    }
+	
+И commentScreenContent тоже пусть принимает FeedPost
+
+@Composable
+fun AppNavGraph(navHostController: NavHostController,
+                newsFeedScreenContent : @Composable () -> Unit,
+                favoriteScreenContent : @Composable () -> Unit,
+                profileScreenContent : @Composable ()-> Unit,
+                commentsScreenContent : @Composable (FeedPost) -> Unit <-----------------
+){
+    NavHost(
+        navController = navHostController,
+        startDestination = Screen.Home.route
+        ){
+
+
+       homeScreenNavGraph(
+           newsFeedScreenContent = newsFeedScreenContent,
+           commentsScreenContent = commentsScreenContent) <-------------
+
+        composable(Screen.Favorite.route){
+            favoriteScreenContent()
+        }
+
+        composable(Screen.Profile.route){
+            profileScreenContent()
+        }
+    }
+
+}
+
+fun NavGraphBuilder.homeScreenNavGraph(
+    newsFeedScreenContent: @Composable () -> Unit,
+    commentsScreenContent: @Composable (FeedPost) -> Unit <-------------------
+) {
+    navigation(
+        startDestination = Screen.NewsFeed.route,
+        route = Screen.Home.route
+    ) {
+        composable(Screen.NewsFeed.route) {
+            newsFeedScreenContent()
+        }
+        composable(Screen.Comments.route) {
+            commentsScreenContent(FeedPost()) <-------------------- пока временно просто создаём объект
+        }
+    }
+}
+
+Передача параметра через косую черту
+
+fun navigateToComment(feedPost : FeedPost){
+        navHostController.navigate(Screen.Comments.route + "/" + feedPost.id) // comments/15/home_of_comunity  <---------------
+    }
+	
+При этом формировать route здесь неудобно. Сформируем в классе Comments
+
+sealed class Screen(val route: String) {
+
+    object NewsFeed : Screen(ROUTE_NEWS_FEED)
+    object Favorite : Screen(ROUTE_FAVORITE)
+    object Profile : Screen(ROUTE_PROFILE)
+
+    object Home : Screen(ROUTE_HOME)
+    object Comments : Screen(ROUTE_COMMENTS){
+        
+        fun getRouteWithArgs(feedPost : FeedPost) : String { <-------------
+            return "$ROUTE_COMMENTS/${feedPost.id}"
+        }
+    }
+	.........................
+}
+
+Далее, в графе прописан просто route "comments", а нужно route с параметрами comments/{feed_post_id}
+
+fun NavGraphBuilder.homeScreenNavGraph(
+    newsFeedScreenContent: @Composable () -> Unit,
+    commentsScreenContent: @Composable (FeedPost) -> Unit
+) {
+    navigation(
+        startDestination = Screen.NewsFeed.route,
+        route = Screen.Home.route
+    ) {
+        composable(Screen.NewsFeed.route) {
+            newsFeedScreenContent()
+        }
+        composable(Screen.Comments.route) {// comments/{feed_post_id} <-----------
+            commentsScreenContent(FeedPost())
+        }
+    }
+}
+
+Пропишем его сразу в пути
+Screen{
+..............
+	object Comments : Screen(ROUTE_COMMENTS){
+        
+        private const val ROUTE_FOR_ARGS = "comments"
+        fun getRouteWithArgs(feedPost : FeedPost) : String {
+            
+            return "$ROUTE_FOR_ARGS/${feedPost.id}"
+        }
+    }
+	......
+	const val ROUTE_COMMENTS = "comments/{feed_post_id}"
+	......
+}
+
+Получение аргументов
+
+fun NavGraphBuilder.homeScreenNavGraph(
+    newsFeedScreenContent: @Composable () -> Unit,
+    commentsScreenContent: @Composable (FeedPost) -> Unit
+) {
+    navigation(
+        startDestination = Screen.NewsFeed.route,
+        route = Screen.Home.route
+    ) {
+        composable(Screen.NewsFeed.route) {
+            newsFeedScreenContent()
+        }
+        composable(Screen.Comments.route) {
+            val feedPostId = it.arguments?.getInt("feed_post_id") ?: 0 <---------------
+            commentsScreenContent(FeedPost(id = feedPostId))<--------------
+        }
+    }
+}
+
+Проверим - экран комментраиев открывается ок, но id всегда 0. Почему так происходит посмотрим в следующем уроке
+

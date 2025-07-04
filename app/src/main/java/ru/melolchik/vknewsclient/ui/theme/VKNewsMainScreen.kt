@@ -40,10 +40,6 @@ fun MainScreen() {
 
     val navigationState = rememberNavigateState()
 
-    val commentsToPost = remember {
-        mutableStateOf<FeedPost?>(null)
-    }
-
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -89,17 +85,16 @@ fun MainScreen() {
             navHostController = navigationState.navHostController,
             newsFeedScreenContent = {
                 HomeScreen(paddingValues = paddingValues) {
-                    commentsToPost.value = it
-                    navigationState.navigateToComment()
+                    navigationState.navigateToComment(it)
                 }
 
             },
-            commentsScreenContent = {
+            commentsScreenContent = { feedPost ->
                 CommentsScreen(
                     onBackPressed = {
                         navigationState.navHostController.popBackStack()
                                     },
-                    feedPost = commentsToPost.value!!
+                    feedPost = feedPost
                 )
             },
             favoriteScreenContent = {

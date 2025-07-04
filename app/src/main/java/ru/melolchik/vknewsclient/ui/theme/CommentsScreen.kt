@@ -1,5 +1,6 @@
 package ru.melolchik.vknewsclient.ui.theme
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -42,6 +43,7 @@ fun CommentsScreen(
     onBackPressed : () -> Unit,
     feedPost: FeedPost
 ){
+    Log.d("111","feedPost = $feedPost")
     val viewModel: CommentsViewModel = viewModel(
         factory = CommentsViewModalFactory(feedPost)
     )
