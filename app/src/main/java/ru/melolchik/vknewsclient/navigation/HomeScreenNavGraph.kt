@@ -19,7 +19,7 @@ fun NavGraphBuilder.homeScreenNavGraph(
             newsFeedScreenContent()
         }
         composable(Screen.Comments.route) {// comments/{feed_post_id}
-            val feedPostId = it.arguments?.getInt("feed_post_id") ?: 0
+            val feedPostId = it.arguments?.getInt(Screen.KEY_FEED_POST_ID) ?: 0
             commentsScreenContent(FeedPost(id = feedPostId))
         }
     }

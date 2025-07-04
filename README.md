@@ -2613,3 +2613,52 @@ fun NavGraphBuilder.homeScreenNavGraph(
 
 Проверим - экран комментраиев открывается ок, но id всегда 0. Почему так происходит посмотрим в следующем уроке
 
+Вынесем название аргумента в отдельную переменную
+
+sealed class Screen(val route: String) {
+
+    object NewsFeed : Screen(ROUTE_NEWS_FEED)
+    object Favorite : Screen(ROUTE_FAVORITE)
+    object Profile : Screen(ROUTE_PROFILE)
+
+    object Home : Screen(ROUTE_HOME)
+    object Comments : Screen(ROUTE_COMMENTS){
+
+        private const val ROUTE_FOR_ARGS = "comments"
+        fun getRouteWithArgs(feedPost : FeedPost) : String {
+
+            return "$ROUTE_FOR_ARGS/${feedPost.id}"
+        }
+    }
+
+
+    companion object {
+        const val KEY_FEED_POST_ID = "feed_post_id" <-----------
+
+        const val ROUTE_HOME = "home"
+        const val ROUTE_COMMENTS = "comments/{$KEY_FEED_POST_ID}" <--------------
+        const val ROUTE_NEWS_FEED = "news_feed"
+        const val ROUTE_FAVORITE = "favorite"
+        const val ROUTE_PROFILE = "profile"
+
+    }
+}
+
+
+fun NavGraphBuilder.homeScreenNavGraph(
+    newsFeedScreenContent: @Composable () -> Unit,
+    commentsScreenContent: @Composable (FeedPost) -> Unit
+) {
+    navigation(
+        startDestination = Screen.NewsFeed.route,
+        route = Screen.Home.route
+    ) {
+        composable(Screen.NewsFeed.route) {
+            newsFeedScreenContent()
+        }
+        composable(Screen.Comments.route) {// comments/{feed_post_id}
+            val feedPostId = it.arguments?.getInt(Screen.KEY_FEED_POST_ID) ?: 0 <--------------
+            commentsScreenContent(FeedPost(id = feedPostId))
+        }
+    }
+}

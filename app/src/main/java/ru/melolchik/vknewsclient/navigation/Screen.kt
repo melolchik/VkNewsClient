@@ -19,9 +19,11 @@ sealed class Screen(val route: String) {
     }
 
 
-    private companion object {
+    companion object {
+        const val KEY_FEED_POST_ID = "feed_post_id"
+
         const val ROUTE_HOME = "home"
-        const val ROUTE_COMMENTS = "comments/{feed_post_id}"
+        const val ROUTE_COMMENTS = "comments/{$KEY_FEED_POST_ID}"
         const val ROUTE_NEWS_FEED = "news_feed"
         const val ROUTE_FAVORITE = "favorite"
         const val ROUTE_PROFILE = "profile"
