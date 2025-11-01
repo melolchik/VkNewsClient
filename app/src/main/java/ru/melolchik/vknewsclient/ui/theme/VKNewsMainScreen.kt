@@ -84,8 +84,8 @@ fun MainScreen() {
         AppNavGraph(
             navHostController = navigationState.navHostController,
             newsFeedScreenContent = {
-                HomeScreen(paddingValues = paddingValues) {
-                    navigationState.navigateToComment(it)
+                HomeScreen(paddingValues = paddingValues) { feedPost ->
+                    navigationState.navigateToComment(feedPost)
                 }
 
             },
