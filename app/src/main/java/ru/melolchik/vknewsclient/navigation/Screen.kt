@@ -1,5 +1,7 @@
 package ru.melolchik.vknewsclient.navigation
 
+import android.net.Uri
+import com.google.gson.Gson
 import ru.melolchik.vknewsclient.domain.FeedPost
 
 sealed class Screen(val route: String) {
@@ -14,20 +16,25 @@ sealed class Screen(val route: String) {
         private const val ROUTE_FOR_ARGS = "comments"
         fun getRouteWithArgs(feedPost : FeedPost) : String {
 
-            return "$ROUTE_FOR_ARGS/${feedPost.id}/${feedPost.contentText}"
+            val feedPostJson = Gson().toJson(feedPost)
+            return "$ROUTE_FOR_ARGS/${feedPostJson.encode()}"
         }
     }
 
 
     companion object {
-        const val KEY_FEED_POST_ID = "feedPostId"
-        const val KEY_FEED_POST_CONTENT_TEXT = "feedPostContentText"
+        const val KEY_FEED_POST = "feedPost"
 
         const val ROUTE_HOME = "home"
-        const val ROUTE_COMMENTS = "comments/{$KEY_FEED_POST_ID}/{$KEY_FEED_POST_CONTENT_TEXT}"
+        const val ROUTE_COMMENTS = "comments/{$KEY_FEED_POST}"
         const val ROUTE_NEWS_FEED = "news_feed"
         const val ROUTE_FAVORITE = "favorite"
         const val ROUTE_PROFILE = "profile"
 
     }
+}
+
+
+fun String.encode() : String {
+    return Uri.encode(this)
 }

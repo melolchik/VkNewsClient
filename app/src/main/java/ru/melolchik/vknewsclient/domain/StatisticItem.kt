@@ -1,5 +1,8 @@
 package ru.melolchik.vknewsclient.domain
 
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
+
 
 enum class StatisticType{
     VIEWS,
@@ -7,7 +10,9 @@ enum class StatisticType{
     SHARES,
     LIKES
 }
+
+@Parcelize
 data class StatisticItem(
     val type : StatisticType,
     val count : Int = 0
-)
+) : Parcelable

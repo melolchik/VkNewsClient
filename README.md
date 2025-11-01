@@ -1311,7 +1311,7 @@ class NavigationState(val navHostController: NavHostController) {
                 saveState = true
             }
             launchSingleTop = true
-            restoreState = true
+            restoreState = true 
         }
     }
 }
@@ -1787,9 +1787,11 @@ fun HomeScreen(
 Есть проблема - не сохраняется state первого экрана, т.к. Composable-функция пересоздаётся. Этот момент исправим в будущем!
 
 #5.8 Рефакторинг VIewModels
+
+Переработаем навигацию к комментариям через библиотеку навигации
 Разделим ViewModel - и для двух экранов - для News и для Comments
 
-Переименуем MainViewModel в NewsFeedViewModel и уберём функциональность с комментариями уберём.
+Переименуем MainViewModel в NewsFeedViewModel и уберём функциональность с комментариями .
 Также переименуем стейт
 
 class NewsFeedViewModel : ViewModel() {
@@ -2662,3 +2664,278 @@ fun NavGraphBuilder.homeScreenNavGraph(
         }
     }
 }
+
+#5.13 Передача параметров. Часть 2. Navigation Types
+
+Разберёмся почему всегда postId = 0
+
+При дебаге выявили, что проблема здесь:
+
+fun NavGraphBuilder.homeScreenNavGraph(
+    newsFeedScreenContent: @Composable () -> Unit,
+    commentsScreenContent: @Composable (FeedPost) -> Unit
+) {
+    navigation(
+        startDestination = Screen.NewsFeed.route,
+        route = Screen.Home.route
+    ) {
+        composable(Screen.NewsFeed.route) {
+            newsFeedScreenContent()
+        }
+        composable(Screen.Comments.route) {// comments/{feed_post_id}
+		// в аргуменах значение приходит корректное, но getInt возвращает 0
+            val feedPostId = it.arguments?.getInt(Screen.KEY_FEED_POST_ID) ?: 0 <--------------
+            commentsScreenContent(FeedPost(id = feedPostId))
+        }
+    }
+}
+
+По умолчанию все параметры парсятся как строки
+Если переделать так,то всё будет работать. Получаем парамтер как строку
+
+ composable(Screen.Comments.route) { entry -> // comments/{feed_post_id}
+            Log.d("111", "entry.arguments = ${entry.arguments}")
+            val feedPostId = entry.arguments?.getString(Screen.KEY_FEED_POST_ID) ?: "0" <-------------------
+            Log.d("111", "feedPostId = $feedPostId")
+            commentsScreenContent(FeedPost(id = feedPostId.toInt())) <-----------------------
+        }
+		
+Но это не самое лучшее решение
+
+ composable(
+            route = Screen.Comments.route,
+            arguments = listOf(
+                navArgument(Screen.KEY_FEED_POST_ID){ <----ключ
+                    type = NavType.IntType <--- тип
+                }
+            )
+        ) { entry ->             
+            val feedPostId = entry.arguments?.getInt(Screen.KEY_FEED_POST_ID) ?: 0            
+            commentsScreenContent(FeedPost(id = feedPostId))
+        }
+	При передаче строк, они не должны содержать спецсимволы, напрмер косая черта /
+		
+#5.14 Передача параметров. Часть 3. Parcelable, Json, Custom Nav Type
+
+Передавать большие данные не рекомендуется. Лучше передать id объекат, потом загрузить его из репозитория. Но иногда необходимо, поэтому надо знать.
+Предположим текст содержит спецсимволы. Их нужно экранировать.
+
+Передадим такой контент
+
+class NewsFeedViewModel : ViewModel() {
+
+
+    private val initList = mutableListOf<FeedPost>().apply {
+        repeat(10){
+            add(
+                FeedPost(
+                    id = it,
+                    contentText = "Con/tent $it") <------------- контент со спецсимволами
+            )
+        }
+    }
+
+
+  composable(
+            route = Screen.Comments.route,
+            arguments = listOf(
+                navArgument(Screen.KEY_FEED_POST_ID){
+                    type = NavType.IntType
+                },
+                navArgument(name = Screen.KEY_FEED_POST_CONTENT_TEXT){ <------ передача строки
+                    type = NavType.StringType
+                }
+            )
+        ) { entry ->
+            val feedPostId = entry.arguments?.getInt(Screen.KEY_FEED_POST_ID) ?: 0
+            val content = entry.arguments?.getString(Screen.KEY_FEED_POST_CONTENT_TEXT) ?: ""
+            commentsScreenContent(FeedPost(id = feedPostId, contentText = content))
+        }
+
+sealed class Screen(val route: String) {
+
+    object NewsFeed : Screen(ROUTE_NEWS_FEED)
+    object Favorite : Screen(ROUTE_FAVORITE)
+    object Profile : Screen(ROUTE_PROFILE)
+
+    object Home : Screen(ROUTE_HOME)
+    object Comments : Screen(ROUTE_COMMENTS){
+
+        private const val ROUTE_FOR_ARGS = "comments"
+        fun getRouteWithArgs(feedPost : FeedPost) : String {
+
+            return "$ROUTE_FOR_ARGS/${feedPost.id}/${feedPost.contentText}" <------------------------ "$ROUTE_FOR_ARGS/${feedPost.id}/${Uri.encode(feedPost.contentText)}"
+        }
+    }
+
+
+    companion object {
+        const val KEY_FEED_POST_ID = "feedPostId"
+        const val KEY_FEED_POST_CONTENT_TEXT = "feedPostContentText" <--------------------
+
+        const val ROUTE_HOME = "home"
+        const val ROUTE_COMMENTS = "comments/{$KEY_FEED_POST_ID}/{$KEY_FEED_POST_CONTENT_TEXT}" <--------------------
+        const val ROUTE_NEWS_FEED = "news_feed"
+        const val ROUTE_FAVORITE = "favorite"
+        const val ROUTE_PROFILE = "profile"
+
+    }
+}
+
+Строки передаём используя {Uri.encode(feedPost.contentText) <---- вызывать всегда при передаче строк
+
+Неного рефакторинга
+
+fun String.encode() : String {
+    return Uri.encode(this)
+}
+
+И...
+
+fun getRouteWithArgs(feedPost : FeedPost) : String {
+
+            return "$ROUTE_FOR_ARGS/${feedPost.id}/${feedPost.contentText.encode()}"
+        }
+		
+Теперь посмотрим как передавать объекты - через представление их в виде строки - формат Json
+Добавим зависимость
+
+implementation("com.google.code.gson:gson:2.10")
+
+Передача парамтера:
+
+sealed class Screen(val route: String) {
+
+    object NewsFeed : Screen(ROUTE_NEWS_FEED)
+    object Favorite : Screen(ROUTE_FAVORITE)
+    object Profile : Screen(ROUTE_PROFILE)
+
+    object Home : Screen(ROUTE_HOME)
+    object Comments : Screen(ROUTE_COMMENTS){
+
+        private const val ROUTE_FOR_ARGS = "comments"
+        fun getRouteWithArgs(feedPost : FeedPost) : String {
+
+            val feedPostJson = Gson().toJson(feedPost) <---------------------
+            return "$ROUTE_FOR_ARGS/${feedPostJson.encode()}" <----------------
+        }
+    }
+
+
+    companion object {
+        const val KEY_FEED_POST = "feedPost" <------------------
+
+        const val ROUTE_HOME = "home"
+        const val ROUTE_COMMENTS = "comments/{$KEY_FEED_POST}" <---------------
+        const val ROUTE_NEWS_FEED = "news_feed"
+        const val ROUTE_FAVORITE = "favorite"
+        const val ROUTE_PROFILE = "profile"
+
+    }
+}
+
+Получение параметра:
+
+fun NavGraphBuilder.homeScreenNavGraph(
+    newsFeedScreenContent: @Composable () -> Unit,
+    commentsScreenContent: @Composable (FeedPost) -> Unit
+) {
+    navigation(
+        startDestination = Screen.NewsFeed.route,
+        route = Screen.Home.route
+    ) {
+        composable(Screen.NewsFeed.route) {
+            newsFeedScreenContent()
+        }
+        composable(
+            route = Screen.Comments.route,
+            arguments = listOf(
+                navArgument(Screen.KEY_FEED_POST){
+                    type = NavType.StringType
+                }
+            )
+        ) { entry ->
+            val feedPostJson = entry.arguments?.getString(Screen.KEY_FEED_POST) ?: ""
+            val feedPost = Gson().fromJson<FeedPost>(feedPostJson, FeedPost::class.java)
+            commentsScreenContent(feedPost)
+        }
+    }
+}
+
+Есть другой способ: Создать свой тип
+Подключаем Kotlin Parcelize
+kotlinParcelize = "1.4.20"
+kotlinParcelize = {id = "org.jetbrains.kotlin.android", version.ref = "kotlinParcelize"}
+
+plugins {
+    alias(libs.plugins.androidApplication) apply false
+    alias(libs.plugins.jetbrainsKotlinAndroid) apply false
+    alias(libs.plugins.kotlinParcelize ) apply false <---------------
+}
+
+plugins {
+    alias(libs.plugins.androidApplication)
+    alias(libs.plugins.jetbrainsKotlinAndroid)
+    alias(libs.plugins.kotlinParcelize ) <----------------
+}
+
+По аналогии с StringType создаём свой тип:
+
+@Parcelize
+data class FeedPost(
+    val id: Int = 0,
+    val comunityName: String = "/dev/null",
+    val publicationDate: String = "14:00",
+    val avatarResId: Int = R.drawable.post_comunity_thumbnail,
+    val contentText: String = "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    val contentImageResId: Int = R.drawable.post_content_image,
+    val statistics: List<StatisticItem> = listOf(
+        StatisticItem(StatisticType.VIEWS, 234),
+        StatisticItem(StatisticType.COMMENTS, 113),
+        StatisticItem(StatisticType.SHARES, 34),
+        StatisticItem(StatisticType.LIKES, 243)
+    )
+) : Parcelable{
+
+    companion object{
+
+        val NavigationType: NavType<FeedPost> = object : NavType<FeedPost>(false){
+            override fun get(
+                bundle: Bundle,
+                key: String
+            ): FeedPost? {
+                return bundle.getParcelable(key)
+            }
+
+            override fun parseValue(value: String): FeedPost {
+                return Gson().fromJson<FeedPost>(value, FeedPost::class.java)
+            }
+
+            override fun put(
+                bundle: Bundle,
+                key: String,
+                value: FeedPost
+            ) {
+                bundle.putParcelable(key,value)
+            }
+
+        }
+    }
+}
+
+
+composable(
+            route = Screen.Comments.route,
+            arguments = listOf(
+                navArgument(Screen.KEY_FEED_POST){
+                    type = NavType.StringType
+                }
+            )
+        ) { entry ->
+            val feedPostJson = entry.arguments?.getString(Screen.KEY_FEED_POST) ?: "" 		|<---------------
+            val feedPost = Gson().fromJson<FeedPost>(feedPostJson, FeedPost::class.java) 	|<--------------- 
+			
+			----> val feedPost = entry.arguments?.getParcelable<FeedPost>(Screen.KEY_FEED_POST) 
+            ---->    ?: throw RuntimeException("Args is null")
+            commentsScreenContent(feedPost)
+        }

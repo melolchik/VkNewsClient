@@ -7,6 +7,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
+import com.google.gson.Gson
 import ru.melolchik.vknewsclient.domain.FeedPost
 
 
@@ -24,17 +25,14 @@ fun NavGraphBuilder.homeScreenNavGraph(
         composable(
             route = Screen.Comments.route,
             arguments = listOf(
-                navArgument(Screen.KEY_FEED_POST_ID){
-                    type = NavType.IntType
-                },
-                navArgument(name = Screen.KEY_FEED_POST_CONTENT_TEXT){
-                    type = NavType.StringType
+                navArgument(Screen.KEY_FEED_POST){
+                    type = FeedPost.NavigationType
                 }
             )
         ) { entry ->
-            val feedPostId = entry.arguments?.getInt(Screen.KEY_FEED_POST_ID) ?: 0
-            val content = entry.arguments?.getString(Screen.KEY_FEED_POST_CONTENT_TEXT) ?: ""
-            commentsScreenContent(FeedPost(id = feedPostId, contentText = content))
+            val feedPost = entry.arguments?.getParcelable<FeedPost>(Screen.KEY_FEED_POST)
+                ?: throw RuntimeException("Args is null")
+            commentsScreenContent(feedPost)
         }
     }
 }
