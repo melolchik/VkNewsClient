@@ -2939,3 +2939,99 @@ composable(
             ---->    ?: throw RuntimeException("Args is null")
             commentsScreenContent(feedPost)
         }
+		
+#7.1 Авторизация через VK SDK		
+		
+> Task :app:signingReport
+Variant: debug
+Config: debug
+Store: C:\Users\melol\.android\debug.keystore
+Alias: AndroidDebugKey
+MD5: BD:16:F8:A5:28:0B:BB:55:99:5E:2B:EA:4B:02:81:C7
+SHA1: B4:D2:51:05:69:4C:0A:6E:61:EE:9D:C3:4F:1D:E3:6C:A6:45:C3:66
+SHA-256: EC:22:46:43:7A:1B:2A:87:74:7B:01:DD:22:1D:B0:19:B9:00:52:47:A2:B4:AE:C0:B9:D6:0F:EA:C5:C0:83:EA
+Valid until: понедельник, 26 февраля 2052 г.
+----------
+Variant: release
+Config: null
+Store: null
+Alias: null
+----------
+Variant: debugAndroidTest
+Config: debug
+Store: C:\Users\melol\.android\debug.keystore
+Alias: AndroidDebugKey
+MD5: BD:16:F8:A5:28:0B:BB:55:99:5E:2B:EA:4B:02:81:C7
+SHA1: B4:D2:51:05:69:4C:0A:6E:61:EE:9D:C3:4F:1D:E3:6C:A6:45:C3:66
+SHA-256: EC:22:46:43:7A:1B:2A:87:74:7B:01:DD:22:1D:B0:19:B9:00:52:47:A2:B4:AE:C0:B9:D6:0F:EA:C5:C0:83:EA
+Valid until: понедельник, 26 февраля 2052 г.
+
+
+54290700 - ID
+
+
+Авторизация по документации
+
+				val authLauncher = VK.login(this){
+                    when(it){
+                        is VKAuthenticationResult.Failed -> {
+                            Log.d("MainActivity","Failed")
+                        }
+                        is VKAuthenticationResult.Success -> {
+                            Log.d("MainActivity","Success")
+                        }
+                    }
+
+                }
+                authLauncher.launch(arrayListOf(VKScope.WALL, VKScope.PHOTOS))
+				
+Но в Compose OnActivityResult получается через контракт следующим образом
+
+rememberLauncherForActivityResult() { }
+
+Заходя в логин находим функцию для получения контракта - getVKAuthActivityResultContract()
+
+Получается следующее
+
+ val authLauncher = rememberLauncherForActivityResult(VK.getVKAuthActivityResultContract()) {
+                    when(it){
+                        is VKAuthenticationResult.Failed -> {
+                            Log.d("MainActivity","Failed")
+                        }
+                        is VKAuthenticationResult.Success -> {
+                            Log.d("MainActivity","Success")
+                        }
+                    }
+                }
+				
+authLauncher.launch(listOf(VKScope.WALL))
+
+class MainActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            VkNewsClientTheme {
+
+               val authLauncher = rememberLauncherForActivityResult(VK.getVKAuthActivityResultContract()) {
+                    when(it){
+                        is VKAuthenticationResult.Failed -> {
+                            Log.d("MainActivity","Failed")
+                        }
+                        is VKAuthenticationResult.Success -> {
+                            Log.d("MainActivity","Success")
+                        }
+                    }
+                }
+
+                authLauncher.launch(listOf(VKScope.WALL))
+                MainScreen()
+
+            }
+        }
+    }
+	....
+	
+	Запускаем так и приложение крашится
+
