@@ -1,4 +1,4 @@
-package ru.melolchik.vknewsclient.ui.theme
+package ru.melolchik.vknewsclient.presentation.main
 
 import android.app.Application
 import android.util.Log

@@ -1,4 +1,4 @@
-package ru.melolchik.vknewsclient.ui.theme
+package ru.melolchik.vknewsclient.presentation.comments
 
 import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.domain.PostComment

@@ -1,4 +1,4 @@
-package ru.melolchik.vknewsclient.ui.theme
+package ru.melolchik.vknewsclient.presentation.main
 
 sealed class AuthState {
     object Initial : AuthState()

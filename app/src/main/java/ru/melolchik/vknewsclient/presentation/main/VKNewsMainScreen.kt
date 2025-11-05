@@ -1,7 +1,6 @@
-package ru.melolchik.vknewsclient.ui.theme
+package ru.melolchik.vknewsclient.presentation.main
 
 import android.util.Log
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
@@ -16,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -24,11 +22,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.currentBackStackEntryAsState
-import ru.melolchik.vknewsclient.NewsFeedViewModel
-import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.navigation.AppNavGraph
-import ru.melolchik.vknewsclient.navigation.Screen
 import ru.melolchik.vknewsclient.navigation.rememberNavigateState
+import ru.melolchik.vknewsclient.presentation.comments.CommentsScreen
+import ru.melolchik.vknewsclient.presentation.news.NewsFeedScreen
+import ru.melolchik.vknewsclient.presentation.main.NavigationItem
 
 fun log(text: String) {
     Log.d("COMPOSE_TEST", text)
@@ -84,7 +82,7 @@ fun MainScreen() {
         AppNavGraph(
             navHostController = navigationState.navHostController,
             newsFeedScreenContent = {
-                HomeScreen(paddingValues = paddingValues) { feedPost ->
+                NewsFeedScreen(paddingValues = paddingValues) { feedPost ->
                     navigationState.navigateToComment(feedPost)
                 }
 
@@ -93,7 +91,7 @@ fun MainScreen() {
                 CommentsScreen(
                     onBackPressed = {
                         navigationState.navHostController.popBackStack()
-                                    },
+                    },
                     feedPost = feedPost
                 )
             },

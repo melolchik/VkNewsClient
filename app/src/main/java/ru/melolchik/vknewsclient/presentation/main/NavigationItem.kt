@@ -1,4 +1,4 @@
-package ru.melolchik.vknewsclient.ui.theme
+package ru.melolchik.vknewsclient.presentation.main
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Favorite
@@ -13,7 +13,13 @@ sealed class NavigationItem(
     val titleResId : Int,
     val icon: ImageVector
 ){
-    object Home : NavigationItem (Screen.Home,R.string.navigation_item_main, Icons.Outlined.Home)
-    object Favorite : NavigationItem (Screen.Favorite,R.string.navigation_item_favourite, Icons.Outlined.Favorite)
-    object Profile : NavigationItem (Screen.Profile,R.string.navigation_item_profile, Icons.Outlined.Person)
+    object Home : NavigationItem (Screen.Home, R.string.navigation_item_main, Icons.Outlined.Home)
+    object Favorite : NavigationItem (
+        Screen.Favorite,
+        R.string.navigation_item_favourite, Icons.Outlined.Favorite
+    )
+    object Profile : NavigationItem (
+        Screen.Profile,
+        R.string.navigation_item_profile, Icons.Outlined.Person
+    )
 }

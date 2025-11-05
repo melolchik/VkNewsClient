@@ -1,6 +1,5 @@
-package ru.melolchik.vknewsclient.ui.theme
+package ru.melolchik.vknewsclient.presentation.news
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,14 +22,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ru.melolchik.vknewsclient.NewsFeedViewModel
+import ru.melolchik.vknewsclient.presentation.news.NewsFeedViewModel
 import ru.melolchik.vknewsclient.domain.FeedPost
 
 @Composable
-fun HomeScreen(
+fun NewsFeedScreen(
     paddingValues : PaddingValues,
     onCommentsClickListener: (FeedPost) -> Unit
 ){
@@ -86,17 +83,21 @@ private fun FeedPosts(
                     }
                 },
                 content = {
-                    PostCard(modifier = Modifier,
+                    PostCard(
+                        modifier = Modifier,
                         feedPost = feedPost,
                         onViewsClickListener = { statisticItem ->
-                            viewModel.updateStatistics(feedPost,statisticItem) },
+                            viewModel.updateStatistics(feedPost, statisticItem)
+                        },
                         onShareClickListener = { statisticItem ->
-                            viewModel.updateStatistics(feedPost,statisticItem) },
+                            viewModel.updateStatistics(feedPost, statisticItem)
+                        },
                         onCommentsClickListener = { statisticItem ->
                             onCommentsClickListener(feedPost)
-                                                  },
+                        },
                         onLikeClickListener = { statisticItem ->
-                            viewModel.updateStatistics(feedPost,statisticItem) }
+                            viewModel.updateStatistics(feedPost, statisticItem)
+                        }
                     )
 
                 }

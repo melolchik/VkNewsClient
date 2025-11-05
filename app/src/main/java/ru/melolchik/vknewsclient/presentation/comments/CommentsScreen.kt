@@ -1,4 +1,4 @@
-package ru.melolchik.vknewsclient.ui.theme
+package ru.melolchik.vknewsclient.presentation.comments
 
 import android.util.Log
 import androidx.compose.foundation.Image
@@ -31,10 +31,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ru.melolchik.vknewsclient.CommentsViewModalFactory
-import ru.melolchik.vknewsclient.CommentsViewModel
 import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.domain.PostComment
+import ru.melolchik.vknewsclient.ui.theme.VkNewsClientTheme
 
 
 @OptIn(ExperimentalMaterial3Api::class)

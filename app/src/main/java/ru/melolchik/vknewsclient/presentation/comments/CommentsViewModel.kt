@@ -1,13 +1,10 @@
-package ru.melolchik.vknewsclient
+package ru.melolchik.vknewsclient.presentation.comments
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.domain.PostComment
-import ru.melolchik.vknewsclient.domain.StatisticItem
-import ru.melolchik.vknewsclient.ui.theme.CommentsScreenState
-import ru.melolchik.vknewsclient.ui.theme.NewsFeedScreenState
 
 class CommentsViewModel(val feedPost: FeedPost) : ViewModel() {
 

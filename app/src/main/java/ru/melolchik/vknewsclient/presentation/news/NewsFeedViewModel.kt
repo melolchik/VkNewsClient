@@ -1,11 +1,10 @@
-package ru.melolchik.vknewsclient
+package ru.melolchik.vknewsclient.presentation.news
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.domain.StatisticItem
-import ru.melolchik.vknewsclient.ui.theme.NewsFeedScreenState
 
 class NewsFeedViewModel : ViewModel() {
 
@@ -15,7 +14,8 @@ class NewsFeedViewModel : ViewModel() {
             add(
                 FeedPost(
                     id = it,
-                    contentText = "Con/tent $it")
+                    contentText = "Con/tent $it"
+                )
             )
         }
     }
@@ -26,7 +26,7 @@ class NewsFeedViewModel : ViewModel() {
     val screenState : LiveData<NewsFeedScreenState> = _screenState
 
 
-    private fun List<FeedPost>.getItemById(id: Int) : FeedPost{
+    private fun List<FeedPost>.getItemById(id: Int) : FeedPost {
         return this.find{it.id == id} ?: throw IllegalArgumentException("FeedPost with id = $id not found!")
     }
 
@@ -40,7 +40,7 @@ class NewsFeedViewModel : ViewModel() {
         _screenState.value = NewsFeedScreenState.Posts(oldPosts)
     }
 
-    public fun updateStatistics(feedPost: FeedPost ,statisticItem: StatisticItem){
+    public fun updateStatistics(feedPost: FeedPost, statisticItem: StatisticItem){
         val currentState = screenState.value
         if(currentState !is NewsFeedScreenState.Posts){
             return
