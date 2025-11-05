@@ -8,6 +8,7 @@ android {
     namespace = "ru.melolchik.vknewsclient"
     compileSdk = 34
 
+
     defaultConfig {
         applicationId = "ru.melolchik.vknewsclient"
         minSdk = 24
@@ -19,6 +20,14 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        addManifestPlaceholders(
+            mapOf(
+                "VKIDClientID" to "54290700", // ID вашего приложения (app_id).
+                "VKIDClientSecret" to "O673uE11P8PRi8iJHpCD", // Ваш защищенный ключ (client_secret).
+                "VKIDRedirectHost" to "vk.ru", // Обычно используется vk.ru.
+                "VKIDRedirectScheme" to "vk54290700", // Должно быть vk{ID приложения}.
+            )
+        )
     }
 
     buildTypes {
@@ -65,8 +74,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation("com.google.code.gson:gson:2.10")
 
-    implementation ("com.vk:android-sdk-core:4.1.0")
-    implementation ("com.vk:android-sdk-api:4.1.0")
+//    implementation ("com.vk:android-sdk-core:4.1.0")
+//    implementation ("com.vk:android-sdk-api:4.1.0")
+    implementation("com.vk.id:vkid:2.6.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

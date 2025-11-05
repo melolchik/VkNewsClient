@@ -3035,3 +3035,175 @@ class MainActivity : ComponentActivity() {
 	
 	Запускаем так и приложение крашится
 
+#7.2 SideEffect и LaunchedEffect
+
+
+fun sum(a: Int, b: Int) : Int{ <---- чистая функция
+    return a + b;
+}
+
+Немного перепишем
+
+var result = 0
+fun sum(a: Int, b: Int) : Int{
+    result =  a + b
+    return result
+}
+Так ф-ция перестает быть чистой, имеет сайд-эффекты, потому что кроме прямого назначения делает что-то за пределами скоупа своей ответственности
+
+
+Другой пример
+
+@Composable
+fun SideEffectTest(number : MyNumber){
+    LazyColumn {
+        repeat(5){
+            item { 
+                Text(text = "Number: ${number.a}")
+            }
+        }
+    }
+    
+}
+
+data class MyNumber(var a: Int)
+
+Сейчас SideEffectTest чистая функция, её зона ответственности выводить таблицу
+Изменим:
+
+@Composable
+fun SideEffectTest(number : MyNumber){
+    Column {
+        LazyColumn {
+            repeat(5){
+                item {
+                    Text(text = "Number: ${number.a}")
+                }
+            }
+        }
+        number.a = 5 <--- меняем поле, сайд эффект
+
+        LazyColumn {
+            repeat(5){
+                item {
+                    Text(text = "Number: ${number.a}")
+                }
+            }
+        }
+    }
+   
+}
+
+Выполнение не будет последовательным
+Функции в Jetpack Compose могут быть вызваны в любом порядке и нельзя расчитывать на порядок.
+SideEffectTest - должна заниматься только отрисовкой и реагировать на действия пользователя, а мы добавляем изменение объекта во время рекомпозиции
+Так делать никогда не стоит!
+Вернёмся к нашей проблеме:
+
+class MainActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            VkNewsClientTheme {
+
+               val authLauncher = rememberLauncherForActivityResult(VK.getVKAuthActivityResultContract()) {
+                    when(it){
+                        is VKAuthenticationResult.Failed -> {
+                            Log.d("MainActivity","Failed")
+                        }
+                        is VKAuthenticationResult.Success -> {
+                            Log.d("MainActivity","Success")
+                        }
+                    }
+                }
+
+                authLauncher.launch(listOf(VKScope.WALL)) <--- сайд эффект , меняем стейт во время рекомпозиции, нужно перевести на клик, например
+                MainScreen()
+
+            }
+        }
+    }
+	....
+	
+	Бывает без сайд эффектов не обойтись - нужно выполнить действие в процессе композиции
+	В таком случае можно воспользоваться функциями их Effect API
+	Например, запуск при открытии приложения.
+	Одна из них SideEffect{}
+	
+	class MainActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            VkNewsClientTheme {
+
+               val authLauncher = rememberLauncherForActivityResult(VK.getVKAuthActivityResultContract()) {
+                    when(it){
+                        is VKAuthenticationResult.Failed -> {
+                            Log.d("MainActivity","Failed")
+                        }
+                        is VKAuthenticationResult.Success -> {
+                            Log.d("MainActivity","Success")
+                        }
+                    }
+                }
+                SideEffect {
+                    authLauncher.launch(listOf(VKScope.WALL)) <--- код внутри будет вызван при успешной рекомпозиции всей Composable-функции!
+                }
+                
+                MainScreen()
+
+            }
+        }
+    }
+	
+	Есть ещё одна LaunchedEffect(Key1 = ...){
+			// что выполнять
+	}
+	
+	Пример
+	
+	class MainActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            VkNewsClientTheme {
+
+                val someState = remember {
+                    mutableStateOf(true)
+                }
+                Log.d("MainActivity", "Recomposition ${someState.value}")
+
+                SideEffect {
+                    Log.d("MainActivity", "SideEffect") <---- Вызывается при каждой успешной рекомпозиции И здесь при каждом изменении state
+														<----!!!! Нельзя вызывать suspend функции
+                }
+
+                LaunchedEffect(key1 = true) {
+                    Log.d("MainActivity", "LaunchedEffect") <---- Вызывается только один раз и при изменении ключа key1/ Поэтому если в качестве ключа указать state,
+															<---- то код будет вызываться при каждой смене state
+															<----!!!! Находимся внутри scope и можем вызывать suspend функции
+											
+					
+                }
+
+                // MainScreen()
+                Button(
+                    onClick = {
+                        someState.value = !someState.value
+                    }) {
+                    Text(text = "Change state")
+                }
+
+            }
+        }
+    }
+	
+	Функции могут выполняться в любой последовательности и Side эффектов лучше избегать.
+	
+	

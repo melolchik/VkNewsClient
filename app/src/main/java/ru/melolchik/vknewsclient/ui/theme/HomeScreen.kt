@@ -10,11 +10,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.DismissDirection
+//import androidx.compose.material3.DismissDirection
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SwipeToDismiss
+//import androidx.compose.material3.SwipeToDismiss
+import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDismissState
+//import androidx.compose.material3.rememberDismissState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
@@ -63,15 +65,15 @@ private fun FeedPosts(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         items(posts, key = {it.id }){ feedPost ->
-            val dismissState = rememberDismissState()
+            val dismissState = rememberSwipeToDismissBoxState()
 
-            if(dismissState.isDismissed(DismissDirection.EndToStart)){
-                viewModel.deleteItem(feedPost)
-            }
-            SwipeToDismiss(
+//            if(dismissState.isDismissed(DismissDirection.EndToStart)){
+//                viewModel.deleteItem(feedPost)
+//            }
+            SwipeToDismissBox(
                 modifier = Modifier.animateItemPlacement(),
                 state = dismissState,
-                background = {
+                backgroundContent = {
                     Box(modifier = Modifier
                         .padding(16.dp)
                         .background(color = Color.Red.copy(alpha = 0.5f))
@@ -83,7 +85,7 @@ private fun FeedPosts(
                             color = Color.White)
                     }
                 },
-                dismissContent = {
+                content = {
                     PostCard(modifier = Modifier,
                         feedPost = feedPost,
                         onViewsClickListener = { statisticItem ->
@@ -97,8 +99,9 @@ private fun FeedPosts(
                             viewModel.updateStatistics(feedPost,statisticItem) }
                     )
 
-                },
-                directions = setOf(DismissDirection.EndToStart))
+                }
+               // directions = setOf(DismissDirection.EndToStart)
+         )
 
         }
     }
