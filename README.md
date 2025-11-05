@@ -3206,4 +3206,94 @@ class MainActivity : ComponentActivity() {
 	
 	Функции могут выполняться в любой последовательности и Side эффектов лучше избегать.
 	
+	#7.3 Login Screen
 	
+Добавляем:
+
+@Composable
+fun LoginScreen(onLoginClickListener: () -> Unit){
+    Box(modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center){
+        Column(modifier = Modifier.wrapContentHeight(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally) {
+            Image(modifier = Modifier.size(100.dp),
+                painter = painterResource(R.drawable.vk_logo),
+                contentDescription = null)
+            Spacer(modifier = Modifier.height(100.dp))
+            Button(onClick = { onLoginClickListener() },
+                colors = ButtonDefaults.buttonColors(containerColor = DarkBlue, contentColor = colorResource(R.color.white))) {
+                    Text(text = stringResource(R.string.button_login))
+            }
+        }
+    }
+}
+
+
+sealed class AuthState {
+    object Initial : AuthState()
+    object Authorized : AuthState()
+    object NotAuthorized : AuthState()
+}
+
+Т.к. sdk поменяелось делаю так
+
+class MainViewModel(application: Application) : AndroidViewModel(application = application) {
+
+    private val _authSate  = MutableLiveData<AuthState>(AuthState.Initial)
+
+    val authState : LiveData<AuthState> = _authSate
+
+    init {
+        _authSate.value = if(VKID.instance.accessToken != null) AuthState.Authorized else AuthState.NotAuthorized
+    }
+
+    fun login(){
+        Log.d("MainViewModel", "login")
+        viewModelScope.launch {
+            val vkAuthCallback = object : VKIDAuthCallback {
+                override fun onAuth(accessToken: AccessToken) {
+                    val token = accessToken.token
+                    Log.d("MainViewModel", "Success token = $token")
+                    _authSate.postValue(AuthState.Authorized)
+                }
+
+                override fun onFail(fail: VKIDAuthFail) {
+
+                    Log.d("MainViewModel", "VKIDAuthFail = $fail")
+                    when (fail) {
+                        is VKIDAuthFail.Canceled -> { /*...*/
+
+                        }
+
+                        else -> {
+                            //...
+                        }
+                    }
+                }
+            }
+
+            VKID.instance.authorize(vkAuthCallback)
+        }
+    }
+
+}
+
+
+class MainActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            VkNewsClientTheme {
+                val viewModel : MainViewModel = viewModel()
+                val authState = viewModel.authState.observeAsState()
+                when(authState.value){
+                    AuthState.Authorized -> MainScreen()
+                    AuthState.NotAuthorized -> LoginScreen { viewModel.login() }
+                    else -> {}
+                }
+            }
+        }
+    }

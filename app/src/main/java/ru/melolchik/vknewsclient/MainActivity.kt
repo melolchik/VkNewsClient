@@ -28,15 +28,20 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vk.id.AccessToken
 import com.vk.id.VKID
 import com.vk.id.VKIDAuthFail
 import com.vk.id.auth.VKIDAuthCallback
+import ru.melolchik.vknewsclient.ui.theme.AuthState
+import ru.melolchik.vknewsclient.ui.theme.LoginScreen
 import ru.melolchik.vknewsclient.ui.theme.MainScreen
+import ru.melolchik.vknewsclient.ui.theme.MainViewModel
 import ru.melolchik.vknewsclient.ui.theme.VkNewsClientTheme
 
 class MainActivity : ComponentActivity() {
@@ -46,59 +51,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             VkNewsClientTheme {
-
-                val someState = remember {
-                    mutableStateOf(true)
+                val viewModel : MainViewModel = viewModel()
+                val authState = viewModel.authState.observeAsState(AuthState.Initial)
+                when(authState.value){
+                    AuthState.Authorized -> MainScreen()
+                    AuthState.NotAuthorized -> LoginScreen { viewModel.login() }
+                    else -> {}
                 }
-                Log.d("MainActivity", "Recomposition ${someState.value}")
-
-//               val authLauncher = rememberLauncherForActivityResult(VK.getVKAuthActivityResultContract()) {
-//                    when(it){
-//                        is VKAuthenticationResult.Failed -> {
-//                            Log.d("MainActivity","Failed")
-//                        }
-//                        is VKAuthenticationResult.Success -> {
-//                            Log.d("MainActivity","Success")
-//                        }
-//                    }
-//                }
-
-                val vkAuthCallback = object : VKIDAuthCallback {
-                    override fun onAuth(accessToken: AccessToken) {
-                        val token = accessToken.token
-                        //...
-                    }
-
-                    override fun onFail(fail: VKIDAuthFail) {
-                        when (fail) {
-                            is VKIDAuthFail.Canceled -> { /*...*/
-                            }
-
-                            else -> {
-                                //...
-                            }
-                        }
-                    }
-
-                }
-                SideEffect {
-                    //VKID.instance.authorize(this@MainActivity, vkAuthCallback)
-                    Log.d("MainActivity", "SideEffect")
-                }
-
-                LaunchedEffect(key1 = true) {
-                    //VKID.instance.authorize(this@MainActivity, vkAuthCallback)
-                    Log.d("MainActivity", "LaunchedEffect")
-                }
-
-                // MainScreen()
-                Button(
-                    onClick = {
-                        someState.value = !someState.value
-                    }) {
-                    Text(text = "Change state")
-                }
-
             }
         }
     }
