@@ -2,19 +2,18 @@ package ru.melolchik.vknewsclient.domain
 
 import android.os.Bundle
 import android.os.Parcelable
-import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavType
 import com.google.gson.Gson
 import kotlinx.parcelize.Parcelize
 import ru.melolchik.vknewsclient.R
 @Parcelize
 data class FeedPost(
-    val id: Int = 0,
-    val comunityName: String = "/dev/null",
+    val id: String,
+    val communityName: String,
     val publicationDate: String = "14:00",
-    val avatarResId: Int = R.drawable.post_comunity_thumbnail,
+    val communityImageUrl: String,
     val contentText: String = "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
-    val contentImageResId: Int = R.drawable.post_content_image,
+    val contentImageUrl: String?,
     val statistics: List<StatisticItem> = listOf(
         StatisticItem(StatisticType.VIEWS, 234),
         StatisticItem(StatisticType.COMMENTS, 113),

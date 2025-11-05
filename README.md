@@ -3297,3 +3297,63 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+	
+	
+#7.4 Refactoring и хранение токена
+
+#7.5 Загружаем данные
+
+Основные моменты:
+
+object ApiFactory {
+
+    private val okHttpClient = OkHttpClient.Builder()
+        .addInterceptor(HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        })
+        .build()
+
+    private val retrofit = Retrofit.Builder()
+        .baseUrl("https://api.vk.ru/method/")
+        .addConverterFactory(GsonConverterFactory.create())
+        .client(okHttpClient)
+        .build()
+
+    val apiService: ApiService = retrofit.create()
+}
+
+interface ApiService {
+
+    @GET("newsfeed.get?filters=post&v=5.199")
+    suspend fun loadNewsfeed(
+        @Query("access_token") token: String
+    ): NewsFeedResponseDto
+}
+
+
+class NewsFeedViewModel : ViewModel() {
+
+    private val mapper = NewsFeedMapper()
+
+    init {
+        loadData()
+    }
+
+    private fun loadData() {
+        viewModelScope.launch {
+            val token = VKID.instance.accessToken?.token ?: return@launch
+            val response = ApiFactory.apiService.loadNewsfeed(token)
+            val posts = mapper.mapResponseToPosts(response)
+            _screenState.postValue(NewsFeedScreenState.Posts(posts = posts))
+        }
+    }
+	.......
+	
+	
+AsyncImage(
+            model = feedPost.communityImageUrl,
+            modifier = Modifier
+                .size(50.dp)
+                .clip(shape = CircleShape),
+            contentDescription = null
+        )

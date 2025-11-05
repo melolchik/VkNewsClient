@@ -10,6 +10,8 @@ import com.vk.id.AccessToken
 import com.vk.id.VKID
 import com.vk.id.VKIDAuthFail
 import com.vk.id.auth.VKIDAuthCallback
+import com.vk.id.auth.VKIDAuthParams
+import com.vk.id.auth.VKIDAuthUiParams
 import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application = application) {
@@ -47,7 +49,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application = a
                 }
             }
 
-            VKID.instance.authorize(vkAuthCallback)
+            val initializer = VKIDAuthParams.Builder().apply {
+                scopes = setOf("wall","friends")
+
+            }.build()
+
+            VKID.instance.authorize(callback =  vkAuthCallback,
+                params = initializer)
         }
     }
 
