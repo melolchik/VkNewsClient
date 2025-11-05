@@ -67,7 +67,8 @@ fun PostCard(
                 onViewsClickListener,
                 onShareClickListener,
                 onCommentsClickListener,
-                onLikeClickListener)
+                onLikeClickListener,
+                feedPost.isFavorite)
         }
 
     }
@@ -80,7 +81,8 @@ private fun Statistics(
     onViewsClickListener: (item: StatisticItem) -> Unit,
     onShareClickListener: (item: StatisticItem) -> Unit,
     onCommentsClickListener: (item: StatisticItem) -> Unit,
-    onLikeClickListener: (item: StatisticItem) -> Unit
+    onLikeClickListener: (item: StatisticItem) -> Unit,
+    isFavorite : Boolean
 ) {
     Row {
         Row(modifier = Modifier.weight(1f))
@@ -88,7 +90,7 @@ private fun Statistics(
             val viewItem = statistics.getItemByType(StatisticType.VIEWS)
             IconWithText(
                 iconResId = R.drawable.ic_views_count,
-                viewItem.count.toString()
+                formatStatisticCount(viewItem.count)
             ) { onViewsClickListener(viewItem) }
         }
         Row(
@@ -98,7 +100,7 @@ private fun Statistics(
             val shareItem = statistics.getItemByType(StatisticType.SHARES)
             IconWithText(
                 iconResId = R.drawable.ic_share,
-                shareItem.count.toString()
+                formatStatisticCount(shareItem.count)
             ) {
                 onShareClickListener(shareItem)
             }
@@ -111,13 +113,23 @@ private fun Statistics(
             }
             val likesItem = statistics.getItemByType(StatisticType.LIKES)
             IconWithText(
-                iconResId = R.drawable.ic_like,
-                likesItem.count.toString()
+                iconResId = if(isFavorite) R.drawable.ic_like_set else R.drawable.ic_like,
+                formatStatisticCount(likesItem.count)
             ) {
                 onLikeClickListener(likesItem)
             }
         }
 
+    }
+}
+
+private fun formatStatisticCount(count: Int): String {
+    return if (count > 100_000) {
+        String.format("%sK", (count / 1000))
+    } else if (count > 1000) {
+        String.format("%.1fK", (count / 1000f))
+    } else {
+        count.toString()
     }
 }
 

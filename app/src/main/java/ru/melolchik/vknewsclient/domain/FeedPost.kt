@@ -6,6 +6,8 @@ import androidx.navigation.NavType
 import com.google.gson.Gson
 import kotlinx.parcelize.Parcelize
 import ru.melolchik.vknewsclient.R
+import kotlin.random.Random
+
 @Parcelize
 data class FeedPost(
     val id: String,
@@ -19,7 +21,8 @@ data class FeedPost(
         StatisticItem(StatisticType.COMMENTS, 113),
         StatisticItem(StatisticType.SHARES, 34),
         StatisticItem(StatisticType.LIKES, 243)
-    )
+    ),
+    val isFavorite : Boolean = Random.nextBoolean()
 ) : Parcelable{
 
     companion object{

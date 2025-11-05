@@ -3357,3 +3357,25 @@ AsyncImage(
                 .clip(shape = CircleShape),
             contentDescription = null
         )
+		
+		
+7.6 Дорабатываем UI
+
+1) Формат даты в маппере
+2) Формат статистики в view
+3)Иконка лайка красная
+Добавляем иконку ic_like_set
+
+Добавим
+
+data class FeedPost(
+    val id: String,
+    ..............
+    val isFavorite : Boolean = Random.nextBoolean() <------------
+	)
+	
+IconWithText(
+                iconResId = if(isFavorite) R.drawable.ic_like_set else R.drawable.ic_like,
+                formatStatisticCount(likesItem.count)
+            )
+Но нужно ещё цвет иконки поправить = тинт
