@@ -1,6 +1,5 @@
 package ru.melolchik.vknewsclient.presentation.news
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -68,7 +67,7 @@ fun PostCard(
                 onShareClickListener,
                 onCommentsClickListener,
                 onLikeClickListener,
-                feedPost.isFavorite)
+                feedPost.isLiked)
         }
 
     }

@@ -3359,7 +3359,7 @@ AsyncImage(
         )
 		
 		
-7.6 Дорабатываем UI
+#7.6 Дорабатываем UI
 
 1) Формат даты в маппере
 2) Формат статистики в view
@@ -3379,3 +3379,186 @@ IconWithText(
                 formatStatisticCount(likesItem.count)
             )
 Но нужно ещё цвет иконки поправить = тинт
+
+
+#7.7 Реализация добавления/удаления лайков
+
+Для начала всю работу с данными вынесем в репозиторий
+
+class NewsFeedRepository {
+
+    private val accessToken = VKID.instance.accessToken
+
+    private val apiService = ApiFactory.apiService
+
+    private val mapper = NewsFeedMapper()
+
+
+    suspend fun loadData(): List<FeedPost> {
+        val response = apiService.loadNewsfeed(getAccessToken())
+        return mapper.mapResponseToPosts(response)
+    }
+
+    private fun getAccessToken(): String {
+        return accessToken?.token ?: throw IllegalStateException("Token is null")
+    }
+}
+
+
+
+interface ApiService {
+
+    @GET("newsfeed.get?filters=post&v=5.199")
+    suspend fun loadNewsfeed(
+        @Query("access_token") token: String
+    ): NewsFeedResponseDto
+
+
+    @GET("likes.add?v=5.199&type=post")
+    suspend fun addLike(
+        @Query("access_token") token: String,
+        @Query("owner_id") ownerId: Long,
+        @Query("item_id") postId: Long
+    )
+}
+
+class NewsFeedRepository {
+
+    private val accessToken = VKID.instance.accessToken
+
+    private val apiService = ApiFactory.apiService
+
+    private val mapper = NewsFeedMapper()
+
+
+    suspend fun loadData(): List<FeedPost> {
+        val response = apiService.loadNewsfeed(getAccessToken())
+        return mapper.mapResponseToPosts(response)
+    }
+
+    private fun getAccessToken(): String {
+        return accessToken?.token ?: throw IllegalStateException("Token is null")
+    }
+
+    suspend fun addLike(feedPost : FeedPost){
+        apiService.addLike(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+
+        )
+    }
+}
+
+
+class NewsFeedViewModel : ViewModel() {
+
+    private val repository = NewsFeedRepository()
+
+    init {
+        loadData()
+    }
+
+    private fun loadData() {
+        viewModelScope.launch {
+            val posts = repository.loadData()
+            _screenState.postValue(NewsFeedScreenState.Posts(posts = posts))
+        }
+    }
+
+    fun changeLikeStatus(feedPost: FeedPost){
+        viewModelScope.launch {
+            repository.addLike(feedPost = feedPost)
+        }
+    }
+	.............
+	}
+	
+И вызываем по клику на лайка
+
+ onLikeClickListener = { statisticItem ->
+                            //viewModel.updateStatistics(feedPost, statisticItem)
+                            viewModel.changeLikeStatus(feedPost = feedPost) <----------------------------
+                        }
+						
+Ответ по API - {"response" " {"likes" : 1729 }}
+
+Добавим возвращаемое значение
+
+ @GET("likes.add?v=5.199&type=post") 
+    suspend fun addLike(
+        @Query("access_token") token: String,
+        @Query("owner_id") ownerId: Long,
+        @Query("item_id") postId: Long
+    ) : LikesCountResponseDto <---------------------- 
+	
+	
+	В репозитории пока получим его
+	
+	suspend fun addLike(feedPost : FeedPost){
+        val response =  apiService.addLike(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+
+        )
+    }
+	
+	Теперь нужно обновить пост и кол-во лайков в нём.И пометить иконку красным.
+	Теоретически можно снова загрузить список постов с сервера, но это плохое решение.
+	Это излишне и доп.время.
+	Пойдём по другому пути.
+	
+	Будем сохранять списко локально в репозитории
+	
+	private val feedPosts = mutableListOf<FeedPost>() <------------
+
+
+    suspend fun loadData(): List<FeedPost> {
+        val response = apiService.loadNewsfeed(getAccessToken())
+        val posts = mapper.mapResponseToPosts(response)
+        feedPosts.addAll(posts) <---------------
+        return posts
+    }
+	
+	suspend fun addLike(feedPost : FeedPost){
+        val response =  apiService.addLike(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+
+        )
+        val newLikesCount = response.likes.count <------- новое кол-во лайков
+        val newStatistics = feedPost.statistics.toMutableList().apply { <--- создаём копию статистики и меняем элемент LIKES
+            removeIf { it.type == StatisticType.LIKES }
+            add(StatisticItem(type = StatisticType.LIKES, newLikesCount))
+        }
+        
+        val newPost = feedPost.copy(statistics = newStatistics, isFavorite = true) <--- Создаём новый feedPost
+        val postIndex = feedPosts.indexOf(feedPost)
+        feedPosts[postIndex] = newPost <---- заменяем его в списке
+    }
+	
+	
+	private fun loadData() {
+        viewModelScope.launch {
+            val posts = repository.loadData()
+            _screenState.postValue(NewsFeedScreenState.Posts(posts = posts)) <---- здесь что загрузили
+        }
+    }
+
+    fun changeLikeStatus(feedPost: FeedPost){
+        viewModelScope.launch {
+            repository.addLike(feedPost = feedPost)
+            _screenState.postValue(NewsFeedScreenState.Posts(posts = repository.feedPosts)) <---- здесь коллекция из репозитория
+        }
+    }
+	
+	private val feedPosts = mutableListOf<FeedPost>() <------------ не можем сделать public
+	
+	Сделаем так
+	
+	private val _feedPosts = mutableListOf<FeedPost>() <---- внутри изменяемая коллекция
+    
+    val feedPosts : List<FeedPost> <---- возвращаем неизменяемую копию
+        get() = _feedPosts.toList()

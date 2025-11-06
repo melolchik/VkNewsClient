@@ -4,16 +4,14 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vk.id.VKID
 import kotlinx.coroutines.launch
-import ru.melolchik.vknewsclient.data.mapper.NewsFeedMapper
-import ru.melolchik.vknewsclient.data.network.ApiFactory
+import ru.melolchik.vknewsclient.data.repository.NewsFeedRepository
 import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.domain.StatisticItem
 
 class NewsFeedViewModel : ViewModel() {
 
-    private val mapper = NewsFeedMapper()
+    private val repository = NewsFeedRepository()
 
     init {
         loadData()
@@ -21,13 +19,21 @@ class NewsFeedViewModel : ViewModel() {
 
     private fun loadData() {
         viewModelScope.launch {
-            val token = VKID.instance.accessToken?.token ?: return@launch
-            val response = ApiFactory.apiService.loadNewsfeed(token)
-            val posts = mapper.mapResponseToPosts(response)
+            val posts = repository.loadData()
             _screenState.postValue(NewsFeedScreenState.Posts(posts = posts))
         }
     }
 
+    fun changeLikeStatus(feedPost: FeedPost){
+        viewModelScope.launch {
+            if(feedPost.isLiked){
+                repository.deleteLike(feedPost = feedPost)
+            }else {
+                repository.addLike(feedPost = feedPost)
+            }
+            _screenState.postValue(NewsFeedScreenState.Posts(posts = repository.feedPosts))
+        }
+    }
 
     private val initState = NewsFeedScreenState.Initial
     private val _screenState = MutableLiveData<NewsFeedScreenState>(initState)
@@ -35,7 +41,7 @@ class NewsFeedViewModel : ViewModel() {
     val screenState: LiveData<NewsFeedScreenState> = _screenState
 
 
-    private fun List<FeedPost>.getItemById(id: String): FeedPost {
+    private fun List<FeedPost>.getItemById(id: Long): FeedPost {
         return this.find { it.id == id }
             ?: throw IllegalArgumentException("FeedPost with id = $id not found!")
     }
