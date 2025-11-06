@@ -15,20 +15,20 @@ class NewsFeedRepository {
 
     private val mapper = NewsFeedMapper()
 
-    private var nextFrom : String? = null;
+    private var nextFrom: String? = null;
 
     private val _feedPosts = mutableListOf<FeedPost>()
 
-    val feedPosts : List<FeedPost>
+    val feedPosts: List<FeedPost>
         get() = _feedPosts.toList()
 
 
     suspend fun loadData(): List<FeedPost> {
         val startFrom = nextFrom
-        if(startFrom == null && feedPosts.isNotEmpty()) return feedPosts
-        val response = if(startFrom == null) {
+        if (startFrom == null && feedPosts.isNotEmpty()) return feedPosts
+        val response = if (startFrom == null) {
             apiService.loadNewsfeed(getAccessToken())
-        }else{
+        } else {
             apiService.loadNewsfeed(getAccessToken(), startFrom = startFrom)
         }
         nextFrom = response.newsFeedContent.nextFrom
@@ -37,12 +37,21 @@ class NewsFeedRepository {
         return feedPosts
     }
 
+    suspend fun deletePost(feedPost: FeedPost)  {
+        apiService.ignoreItem(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+        )
+        _feedPosts.remove(feedPost)
+    }
+
     private fun getAccessToken(): String {
         return accessToken?.token ?: throw IllegalStateException("Token is null")
     }
 
-    suspend fun addLike(feedPost : FeedPost){
-        val response =  apiService.addLike(
+    suspend fun addLike(feedPost: FeedPost) {
+        val response = apiService.addLike(
             token = getAccessToken(),
             ownerId = feedPost.communityId,
             postId = feedPost.id
@@ -59,8 +68,8 @@ class NewsFeedRepository {
         _feedPosts[postIndex] = newPost
     }
 
-    suspend fun deleteLike(feedPost : FeedPost){
-        val response =  apiService.deleteLike(
+    suspend fun deleteLike(feedPost: FeedPost) {
+        val response = apiService.deleteLike(
             token = getAccessToken(),
             ownerId = feedPost.communityId,
             postId = feedPost.id

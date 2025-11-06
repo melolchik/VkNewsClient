@@ -36,9 +36,7 @@ import ru.melolchik.vknewsclient.domain.StatisticType
 fun PostCard(
     modifier: Modifier = Modifier, feedPost: FeedPost,
     onViewsClickListener: (item: StatisticItem) -> Unit,
-    onShareClickListener: (item: StatisticItem) -> Unit,
-    onCommentsClickListener: (item: StatisticItem) -> Unit,
-    onLikeClickListener: (item: StatisticItem) -> Unit
+    onShareClickListener: (item: StatisticItem) -> Unit
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -65,8 +63,6 @@ fun PostCard(
 
                 onViewsClickListener,
                 onShareClickListener,
-                onCommentsClickListener,
-                onLikeClickListener,
                 feedPost.isLiked)
         }
 
@@ -77,8 +73,6 @@ fun PostCard(
 @Composable
 private fun Statistics(
     statistics: List<StatisticItem>,
-    onViewsClickListener: (item: StatisticItem) -> Unit,
-    onShareClickListener: (item: StatisticItem) -> Unit,
     onCommentsClickListener: (item: StatisticItem) -> Unit,
     onLikeClickListener: (item: StatisticItem) -> Unit,
     isFavorite : Boolean
@@ -90,7 +84,7 @@ private fun Statistics(
             IconWithText(
                 iconResId = R.drawable.ic_views_count,
                 formatStatisticCount(viewItem.count)
-            ) { onViewsClickListener(viewItem) }
+            )
         }
         Row(
             modifier = Modifier.weight(1f),
@@ -100,9 +94,7 @@ private fun Statistics(
             IconWithText(
                 iconResId = R.drawable.ic_share,
                 formatStatisticCount(shareItem.count)
-            ) {
-                onShareClickListener(shareItem)
-            }
+            )
             val commentsItem = statistics.getItemByType(StatisticType.COMMENTS)
             IconWithText(
                 iconResId = R.drawable.ic_comment,
@@ -139,12 +131,18 @@ private fun List<StatisticItem>.getItemByType(type: StatisticType): StatisticIte
 @Composable
 private fun IconWithText(
     iconResId: Int, text: String,
-    onItemClickListener: () -> Unit
+    onItemClickListener: (() -> Unit)? = null
 ) {
-    Row(
-        modifier = Modifier.clickable {
+
+    val modifier = if(onItemClickListener != null){
+         Modifier.clickable {
             onItemClickListener()
-        },
+        }
+    }else{
+        Modifier
+    }
+    Row(
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(

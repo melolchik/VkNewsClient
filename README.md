@@ -3696,3 +3696,146 @@ private fun FeedPosts(
         }
     }
 }
+
+
+#7.9 Добавление состояния загрузки и реализация удаления элементов
+
+
+@GET("newsfeed.ignoreItem?type=wall&v=5.199")
+    suspend fun ignoreItem(
+        @Query("access_token") token: String,
+        @Query("owner_id") ownerId: Long,
+        @Query("item_id") postId: Long
+        )
+class NewsFeedRepository {
+...		
+	suspend fun deletePost(feedPost: FeedPost)  {
+        apiService.ignoreItem(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+        )
+        _feedPosts.remove(feedPost)
+    }
+....
+
+class NewsFeedViewModel : ViewModel() {
+	......
+	fun deleteItem(feedPost: FeedPost) {
+        val currentState = screenState.value
+        if (currentState !is NewsFeedScreenState.Posts) {
+            return
+        }
+        viewModelScope.launch {
+            repository.deletePost(feedPost = feedPost)
+            _screenState.value = NewsFeedScreenState.Posts(repository.feedPosts)
+        }
+    }
+	......
+	
+!!!!!!!!!Теперь добавим лоадинг при первой загрузке 
+	
+	sealed class NewsFeedScreenState {
+
+    object Initial : NewsFeedScreenState()
+
+    object Loading : NewsFeedScreenState() <--------------
+    
+    data class Posts(val posts : List<FeedPost>,
+                     val nextDataIsLoading : Boolean = false) : NewsFeedScreenState()
+}
+
+class NewsFeedViewModel : ViewModel() {
+	..............
+	init {
+        _screenState.value = NewsFeedScreenState.Loading
+        loadData()
+    }
+	..............
+	}
+	
+
+fun NewsFeedScreen(
+    paddingValues : PaddingValues,
+    onCommentsClickListener: (FeedPost) -> Unit
+){
+
+    val viewModel : NewsFeedViewModel = viewModel()
+    val screenState = viewModel.screenState.observeAsState(NewsFeedScreenState.Initial)
+
+    when(val currentState = screenState.value){
+        is NewsFeedScreenState.Posts -> {
+            FeedPosts(posts = currentState.posts, viewModel = viewModel,
+                paddingValues = paddingValues ,
+                onCommentsClickListener = onCommentsClickListener,
+                nextDataIsLoading = currentState.nextDataIsLoading)
+        }
+
+        NewsFeedScreenState.Initial -> {
+
+        }
+
+        NewsFeedScreenState.Loading -> { <--------------------------------
+            Box(modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ){
+                CircularProgressIndicator(color = DarkBlue)
+            }
+        }
+    }
+}
+
+
+Поправим клики на статистику
+
+Удаляем из ViewModel updateStatistics
+Переходим во view
+
+
+PostCard(
+                        modifier = Modifier,
+                        feedPost = feedPost,
+                        onViewsClickListener = { statisticItem ->
+                            viewModel.updateStatistics(feedPost, statisticItem) <---------------
+                        },
+                        onShareClickListener = { statisticItem ->
+                            viewModel.updateStatistics(feedPost, statisticItem) <---------------
+                        },
+                        onCommentsClickListener = { statisticItem ->
+                            onCommentsClickListener(feedPost)
+                        },
+                        onLikeClickListener = { statisticItem ->
+                            //viewModel.updateStatistics(feedPost, statisticItem)
+                            viewModel.changeLikeStatus(feedPost = feedPost)
+                        }
+                    )
+					
+Просто удалить их не совсем корректно, будет отображаться клик, как будто есть какое-то действие, поэтому убираем клики из PostCard
+
+Но private fun IconWithText(
+    iconResId: Int, text: String,
+    onItemClickListener: () -> Unit <----------- всегда принимает клик
+) 
+
+Сделаем его необязательным и по умолчанию передадим null
+
+
+@Composable
+private fun IconWithText(
+    iconResId: Int, text: String,
+    onItemClickListener: (() -> Unit)? = null <----------------
+) {
+    
+    val modifier = if(onItemClickListener != null){ <--------------
+         Modifier.clickable {
+            onItemClickListener()
+        }
+    }else{
+        Modifier
+    }
+    Row(
+        modifier = modifier, <------------------
+        verticalAlignment = Alignment.CenterVertically
+    )
+	
+	Там где не надо убираем листенеры

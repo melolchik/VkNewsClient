@@ -13,7 +13,13 @@ class NewsFeedViewModel : ViewModel() {
 
     private val repository = NewsFeedRepository()
 
+    private val initState = NewsFeedScreenState.Initial
+    private val _screenState = MutableLiveData<NewsFeedScreenState>(initState)
+
+    val screenState: LiveData<NewsFeedScreenState> = _screenState
+
     init {
+        _screenState.value = NewsFeedScreenState.Loading
         loadData()
     }
 
@@ -43,10 +49,7 @@ class NewsFeedViewModel : ViewModel() {
         }
     }
 
-    private val initState = NewsFeedScreenState.Initial
-    private val _screenState = MutableLiveData<NewsFeedScreenState>(initState)
 
-    val screenState: LiveData<NewsFeedScreenState> = _screenState
 
 
     private fun List<FeedPost>.getItemById(id: Long): FeedPost {
@@ -59,40 +62,11 @@ class NewsFeedViewModel : ViewModel() {
         if (currentState !is NewsFeedScreenState.Posts) {
             return
         }
-        val oldPosts = currentState.posts.toMutableList()
-        oldPosts.remove(feedPost)
-        _screenState.value = NewsFeedScreenState.Posts(oldPosts)
+        viewModelScope.launch {
+            repository.deletePost(feedPost = feedPost)
+            _screenState.value = NewsFeedScreenState.Posts(repository.feedPosts)
+        }
     }
 
-    public fun updateStatistics(feedPost: FeedPost, statisticItem: StatisticItem) {
-        val currentState = screenState.value
-        if (currentState !is NewsFeedScreenState.Posts) {
-            return
-        }
-        val oldPosts = currentState.posts.toMutableList()
-        val feedPostItem = oldPosts.getItemById(feedPost.id)
-        val oldStatistics = feedPostItem.statistics
-        val newStatistics = oldStatistics.toMutableList().apply {
-            replaceAll { oldItem ->
-                if (oldItem.type == statisticItem.type) {
-                    oldItem.copy(count = oldItem.count + 1)
-                } else {
-                    oldItem
-                }
-            }
-        }
-        //val newFeedPostItem = feedPostItem.copy(statistics = newStatistics)
-        val newFeedPostList = oldPosts.apply {
-            replaceAll { oldItem ->
-                if (oldItem.id == feedPost.id) {
-                    oldItem.copy(statistics = newStatistics)
-                } else {
-                    oldItem
-                }
 
-            }
-        }
-        _screenState.value = NewsFeedScreenState.Posts(newFeedPostList)
-
-    }
 }
