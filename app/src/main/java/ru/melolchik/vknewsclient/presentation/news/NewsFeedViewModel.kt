@@ -24,11 +24,19 @@ class NewsFeedViewModel : ViewModel() {
         }
     }
 
-    fun changeLikeStatus(feedPost: FeedPost){
+    fun loadNextData() {
+        _screenState.value = NewsFeedScreenState.Posts(
+            posts = repository.feedPosts,
+            nextDataIsLoading = true
+        )
+        loadData()
+    }
+
+    fun changeLikeStatus(feedPost: FeedPost) {
         viewModelScope.launch {
-            if(feedPost.isLiked){
+            if (feedPost.isLiked) {
                 repository.deleteLike(feedPost = feedPost)
-            }else {
+            } else {
                 repository.addLike(feedPost = feedPost)
             }
             _screenState.postValue(NewsFeedScreenState.Posts(posts = repository.feedPosts))

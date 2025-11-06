@@ -3562,3 +3562,137 @@ class NewsFeedViewModel : ViewModel() {
     
     val feedPosts : List<FeedPost> <---- возвращаем неизменяемую копию
         get() = _feedPosts.toList()
+		
+		
+		
+#7.8 Подгрузка данных во время скролла
+
+Когда доскролим до конца появляется прогресс бар и появляются следующие посты
+
+В запросе - предыдущее значение next_from используется для поля start_from. Реализуем это в data слое:
+
+
+  @GET("newsfeed.get?filters=post&v=5.199")
+    suspend fun loadNewsfeed(
+        @Query("access_token") token: String,
+        @Query("start_from") startFrom: String,
+        
+    ): NewsFeedResponseDto
+
+
+Добавим:
+
+data class NewsFeedContentDto(
+    @SerializedName("items") val posts: List<PostDto>,
+    @SerializedName("groups") val groups: List<GroupDto>,
+    @SerializedName("next_from") val nextFrom: String? <------------------ 
+)
+
+
+class NewsFeedRepository {
+
+    ......................
+    
+    private var nextFrom : String? = null;
+
+    .............................
+
+
+    suspend fun loadData(): List<FeedPost> {
+        val startFrom = nextFrom <------------- обязательно
+        val response = if(startFrom == null) {
+            apiService.loadNewsfeed(getAccessToken())
+        }else{
+            apiService.loadNewsfeed(getAccessToken(), startFrom = startFrom)
+        }
+        nextFrom = response.newsFeedContent.nextFrom <---------------- 
+        val posts = mapper.mapResponseToPosts(response)
+        _feedPosts.addAll(posts)
+        return posts
+    }
+	
+	Есть нюанс - поле nextFrom может быть null в двух случаях - при первой загрузке и при ококнчании рекомендаций.
+	
+	 suspend fun loadData(): List<FeedPost> {
+        val startFrom = nextFrom
+        if(startFrom == null && feedPosts.isNotEmpty()) return feedPosts <---- добавляем условие
+        val response = if(startFrom == null) {
+            apiService.loadNewsfeed(getAccessToken())
+        }else{
+            apiService.loadNewsfeed(getAccessToken(), startFrom = startFrom)
+        }
+        nextFrom = response.newsFeedContent.nextFrom
+        val posts = mapper.mapResponseToPosts(response)
+        _feedPosts.addAll(posts)
+        return feedPosts <----------------
+    }
+
+
+Далее в стейт добавим  val nextDataIsLoading : Boolean
+
+sealed class NewsFeedScreenState {
+
+    object Initial : NewsFeedScreenState()
+    data class Posts(val posts : List<FeedPost>, val nextDataIsLoading : Boolean = false) : NewsFeedScreenState()
+}
+
+Когда проскролим до конца установим посты из репозитория и nextDataIsLoading = true
+
+fun loadNextData() {
+        _screenState.value = NewsFeedScreenState.Posts(
+            posts = repository.feedPosts,
+            nextDataIsLoading = true
+        )
+        viewModelScope.launch {
+            val posts = repository.loadData()
+            _screenState.postValue(NewsFeedScreenState.Posts(posts = posts))
+        }
+    }
+	
+	
+	или
+	
+	
+	fun loadNextData() {
+        _screenState.value = NewsFeedScreenState.Posts(
+            posts = repository.feedPosts,
+            nextDataIsLoading = true
+        )
+        loadData()
+    }
+	
+	
+	@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun FeedPosts(
+    viewModel: NewsFeedViewModel,
+    paddingValues: PaddingValues,
+    posts: List<FeedPost>,
+    onCommentsClickListener: (FeedPost) -> Unit,
+    nextDataIsLoading : Boolean <------------------------ add variable
+){
+    LazyColumn(modifier = Modifier.padding(paddingValues),
+        contentPadding = PaddingValues(top = 16.dp, start = 8.dp, end = 8.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        items(posts, key = {it.id }){ feedPost ->
+            ... show items here
+
+        }
+		//Когда проскролимся до конца списка появится этот элемент. Сначала nextDataIsLoading = false и вызовется loadNextData(), а там nextDataIsLoading присваивается значение true
+        item { <--- add item with progress
+            if(nextDataIsLoading){
+                Box(modifier = Modifier.fillMaxWidth()
+                    .wrapContentHeight()
+                    .padding(16.dp),
+                    contentAlignment = Alignment.Center){
+                    CircularProgressIndicator(color = DarkBlue)
+                }
+            }else{
+                SideEffect {
+                    viewModel.loadNextData()
+                }
+            }
+        }
+    }
+}

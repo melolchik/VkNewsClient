@@ -15,6 +15,8 @@ class NewsFeedRepository {
 
     private val mapper = NewsFeedMapper()
 
+    private var nextFrom : String? = null;
+
     private val _feedPosts = mutableListOf<FeedPost>()
 
     val feedPosts : List<FeedPost>
@@ -22,10 +24,17 @@ class NewsFeedRepository {
 
 
     suspend fun loadData(): List<FeedPost> {
-        val response = apiService.loadNewsfeed(getAccessToken())
+        val startFrom = nextFrom
+        if(startFrom == null && feedPosts.isNotEmpty()) return feedPosts
+        val response = if(startFrom == null) {
+            apiService.loadNewsfeed(getAccessToken())
+        }else{
+            apiService.loadNewsfeed(getAccessToken(), startFrom = startFrom)
+        }
+        nextFrom = response.newsFeedContent.nextFrom
         val posts = mapper.mapResponseToPosts(response)
         _feedPosts.addAll(posts)
-        return posts
+        return feedPosts
     }
 
     private fun getAccessToken(): String {
