@@ -3,6 +3,9 @@ package ru.melolchik.vknewsclient.presentation.comments
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import ru.melolchik.vknewsclient.data.repository.NewsFeedRepository
 import ru.melolchik.vknewsclient.domain.FeedPost
 import ru.melolchik.vknewsclient.domain.PostComment
 
@@ -12,16 +15,18 @@ class CommentsViewModel(val feedPost: FeedPost) : ViewModel() {
 
     val screenState : LiveData<CommentsScreenState> = _screenState
 
+    val repository = NewsFeedRepository()
+
     init{
         loadComments(feedPost)
     }
     private fun loadComments(feedPost: FeedPost){
-        val comments = mutableListOf<PostComment>().apply {
-            repeat(20){
-                add(PostComment(it))
-            }
+
+        viewModelScope.launch {
+            val comments = repository.getComments(feedPost = feedPost)
+            _screenState.value = CommentsScreenState.Comments(feedPost, comments)
         }
-        _screenState.value = CommentsScreenState.Comments(feedPost, comments)
+
     }
 
 }

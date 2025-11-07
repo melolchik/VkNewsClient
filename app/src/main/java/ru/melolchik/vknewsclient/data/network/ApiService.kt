@@ -1,9 +1,10 @@
 package ru.melolchik.vknewsclient.data.network
 
-import ru.melolchik.vknewsclient.data.model.NewsFeedResponseDto
+import ru.melolchik.vknewsclient.data.model.news.NewsFeedResponseDto
 import retrofit2.http.GET
 import retrofit2.http.Query
-import ru.melolchik.vknewsclient.data.model.LikesCountResponseDto
+import ru.melolchik.vknewsclient.data.model.comments.CommentsResponseDto
+import ru.melolchik.vknewsclient.data.model.news.LikesCountResponseDto
 
 interface ApiService {
 
@@ -19,6 +20,15 @@ interface ApiService {
         @Query("start_from") startFrom: String,
 
     ): NewsFeedResponseDto
+
+
+    @GET("wall.getComments?v=5.199&extended=1&fields=photo_100")
+    suspend fun getComments(
+        @Query("access_token") token: String,
+        @Query("owner_id") ownerId: Long,
+        @Query("post_id") postId: Long
+
+        ): CommentsResponseDto
 
     @GET("newsfeed.ignoreItem?type=wall&v=5.199")
     suspend fun ignoreItem(

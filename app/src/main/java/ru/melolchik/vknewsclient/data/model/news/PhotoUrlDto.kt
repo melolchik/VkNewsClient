@@ -1,4 +1,4 @@
-package ru.melolchik.vknewsclient.data.model
+package ru.melolchik.vknewsclient.data.model.news
 
 import com.google.gson.annotations.SerializedName
 

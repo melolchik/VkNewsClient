@@ -4,6 +4,7 @@ import com.vk.id.VKID
 import ru.melolchik.vknewsclient.data.mapper.NewsFeedMapper
 import ru.melolchik.vknewsclient.data.network.ApiFactory
 import ru.melolchik.vknewsclient.domain.FeedPost
+import ru.melolchik.vknewsclient.domain.PostComment
 import ru.melolchik.vknewsclient.domain.StatisticItem
 import ru.melolchik.vknewsclient.domain.StatisticType
 
@@ -44,6 +45,15 @@ class NewsFeedRepository {
             postId = feedPost.id
         )
         _feedPosts.remove(feedPost)
+    }
+
+    suspend fun getComments(feedPost: FeedPost): List<PostComment> {
+        val comments = apiService.getComments(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+        )
+        return mapper.mapResponseToComments(comments)
     }
 
     private fun getAccessToken(): String {
