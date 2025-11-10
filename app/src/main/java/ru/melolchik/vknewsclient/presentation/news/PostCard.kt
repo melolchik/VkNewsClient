@@ -35,8 +35,8 @@ import ru.melolchik.vknewsclient.domain.StatisticType
 @Composable
 fun PostCard(
     modifier: Modifier = Modifier, feedPost: FeedPost,
-    onViewsClickListener: (item: StatisticItem) -> Unit,
-    onShareClickListener: (item: StatisticItem) -> Unit
+    onCommentsClickListener: (item: StatisticItem) -> Unit,
+    onLikeClickListener: (item: StatisticItem) -> Unit
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -61,8 +61,8 @@ fun PostCard(
             Statistics(
                 feedPost.statistics,
 
-                onViewsClickListener,
-                onShareClickListener,
+                onCommentsClickListener,
+                onLikeClickListener,
                 feedPost.isLiked)
         }
 

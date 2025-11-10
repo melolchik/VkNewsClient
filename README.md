@@ -3842,3 +3842,370 @@ private fun IconWithText(
 	
 	
 #7.10 Реализация экрана комментариев
+
+#9.1 Practice in VkNewsClient
+
+До этого мы не использовали реактивный подход и если данные в репозитории  менялись, их нужно запрашивать занова
+
+Перепишем метод
+
+class NewsFeedRepository {
+
+
+    suspend fun loadData(): List<FeedPost> {
+        val startFrom = nextFrom
+        if (startFrom == null && feedPosts.isNotEmpty()) return feedPosts
+        val response = if (startFrom == null) {
+            apiService.loadNewsfeed(getAccessToken())
+        } else {
+            apiService.loadNewsfeed(getAccessToken(), startFrom = startFrom)
+        }
+        nextFrom = response.newsFeedContent.nextFrom
+        val posts = mapper.mapResponseToPosts(response)
+        _feedPosts.addAll(posts)
+        return feedPosts
+    }
+	
+	------------------------------------------------------->>>
+	
+	 fun loadData(): Flow<List<FeedPost>> = flow{
+        val startFrom = nextFrom
+        if (startFrom == null && feedPosts.isNotEmpty()) {
+            emit(feedPosts)
+            return@flow
+        }
+        val response = if (startFrom == null) {
+            apiService.loadNewsfeed(getAccessToken())
+        } else {
+            apiService.loadNewsfeed(getAccessToken(), startFrom = startFrom)
+        }
+        nextFrom = response.newsFeedContent.nextFrom
+        val posts = mapper.mapResponseToPosts(response)
+        _feedPosts.addAll(posts)
+        emit(feedPosts)
+    }
+	
+	
+	Меняем загрузку данных из ViewModel
+	
+	 private fun loadData() {
+        viewModelScope.launch {
+            val posts = repository.loadData()
+            _screenState.postValue(NewsFeedScreenState.Posts(posts = posts))
+        }
+    }
+	------------------------------------------------------------->>>>
+	
+	 private fun loadData() {
+        viewModelScope.launch {
+            repository.loadData()
+                .collect { posts ->
+                    _screenState.postValue(NewsFeedScreenState.Posts(posts = posts))
+                }
+        }
+    }
+	
+	  fun loadNextData() {
+        _screenState.value = NewsFeedScreenState.Posts(
+            posts = repository.feedPosts,
+            nextDataIsLoading = true
+        )
+        loadData()
+    }
+	
+	Но возвращать холодный flow из репозитория не очень хорошая идея. Т.к. при каждой подписке будет создаваться новый поток данных и загрузка будет начинаться занова.
+	
+	Превратим холодный flow в горячий с помощью stateIn
+	class NewsFeedRepository {
+
+    private val coroutineScope  = CoroutineScope(Dispatchers.Default)
+	
+	
+	    fun loadData(): Flow<List<FeedPost>> = flow{
+			val startFrom = nextFrom
+			if (startFrom == null && feedPosts.isNotEmpty()) {
+				emit(feedPosts)
+				return@flow
+			}
+			val response = if (startFrom == null) {
+				apiService.loadNewsfeed(getAccessToken())
+			} else {
+				apiService.loadNewsfeed(getAccessToken(), startFrom = startFrom)
+			}
+			nextFrom = response.newsFeedContent.nextFrom
+			val posts = mapper.mapResponseToPosts(response)
+			_feedPosts.addAll(posts)
+			emit(feedPosts)
+		}.stateIn( <------------------------------------------------------------------------------------
+			scope = coroutineScope,<------------------------------------------------------------------------------------
+			started = SharingStarted.Lazily,<------------------------------------------------------------------------------------
+			initialValue = feedPosts<------------------------------------------------------------------------------------
+        )
+		
+Но здесь есть ошибка, если посмотреть в лог будет много загрузок и обращений к серверу через API. 
+Причина в том, что мы не фильтруем пустое значение списка которое эмиттим при инициализвции.
+
+
+Добавляем фильтрацию
+
+  private fun loadData() {
+        viewModelScope.launch {
+            repository.loadData()
+                .filter { posts -> posts.isNotEmpty() } <--------------------
+                .collect { posts ->
+                    _screenState.postValue(NewsFeedScreenState.Posts(posts = posts))
+                }
+        }
+    }
+	
+	Следующая проблема: 
+	
+	fun loadData(): Flow<List<FeedPost>> = flow{ здесь каждый раз создаётся новый объект flow и НОВЫЙ ПОТОК ДАННЫХ и преобразуется в горячий из-за этого могут возникать различные ошибки.
+			........................
+			emit(feedPosts)
+		}.stateIn( 
+			scope = coroutineScope,
+			started = SharingStarted.Lazily,
+			initialValue = feedPosts
+        )
+		
+	ФИксится так - просто меняем функцию на val переменную
+	
+	val data: Flow<List<FeedPost>> = flow{
+	}.....
+	
+	
+	Но теперь при прокуртке вниз progress не показывается, т.к. flow повторно не запускается 
+	
+	private fun loadData() {
+        viewModelScope.launch {
+            repository.data
+                .filter { posts -> posts.isNotEmpty() }
+                .collect { posts -> <----------------- Здесь мы просто подписываемся на существующий горячий flow
+                    _screenState.postValue(NewsFeedScreenState.Posts(posts = posts))
+                }
+        }
+    }
+
+    fun loadNextData() {
+        _screenState.value = NewsFeedScreenState.Posts(
+            posts = repository.feedPosts,
+            nextDataIsLoading = true
+        )
+        loadData()
+    }
+	
+	Нужно,чтобы при вызове loadNextData() загружались новые данные
+	
+	Создадим в репозитории MutableSharedFlow, который будет хранить эвенты
+	
+	
+	class NewsFeedRepository {
+
+    private val coroutineScope  = CoroutineScope(Dispatchers.Default)
+    
+    private val nextDataNeededEvents = MutableSharedFlow<Unit>(replay = 1) <----------------------- смотри ниже почему
+   
+    ............................
+
+    val feedPosts: List<FeedPost>
+        get() = _feedPosts.toList()
+
+
+    val data: Flow<List<FeedPost>> = flow{
+        nextDataNeededEvents.emit(Unit)<------------------- если оставить replay = 0, то в следующей строке мы это значение не получим, поэтому replay = 1
+        nextDataNeededEvents.collect { <--------------------- при получении эвента выполняем все эти действия
+            val startFrom = nextFrom
+            if (startFrom == null && feedPosts.isNotEmpty()) {
+                emit(feedPosts)
+                return@collect
+            }
+            val response = if (startFrom == null) {
+                apiService.loadNewsfeed(getAccessToken())
+            } else {
+                apiService.loadNewsfeed(getAccessToken(), startFrom = startFrom)
+            }
+            nextFrom = response.newsFeedContent.nextFrom
+            val posts = mapper.mapResponseToPosts(response)
+            _feedPosts.addAll(posts)
+            emit(feedPosts)
+        }
+       
+    }.stateIn(
+        scope = coroutineScope,
+        started = SharingStarted.Lazily,
+        initialValue = feedPosts
+        )
+		
+		Почему нельзя использовать MutableStateFlow вместо MutableSharedFlow - мы отправляем одно и тоже значение Unit и 
+		оно не меняется и в state будет фильтроваться и коллектор не будет отрабатывать
+		
+		
+		Добавим 
+		
+suspend fun loadNextData(){
+        nextDataNeededEvents.emit(Unit)
+    }
+	
+	
+class NewsFeedViewModel : ViewModel() {
+
+    private val repository = NewsFeedRepository()
+
+    private val initState = NewsFeedScreenState.Initial
+    private val _screenState = MutableLiveData<NewsFeedScreenState>(initState)
+
+    val screenState: LiveData<NewsFeedScreenState> = _screenState
+
+    init {
+        _screenState.value = NewsFeedScreenState.Loading
+        loadData()
+    }
+
+    private fun loadData() {
+        viewModelScope.launch {
+            repository.data
+                .filter { posts -> posts.isNotEmpty() }
+                .collect { posts ->
+                    _screenState.postValue(NewsFeedScreenState.Posts(posts = posts))
+                }
+        }
+    }
+
+    fun loadNextData() {
+        _screenState.value = NewsFeedScreenState.Posts(
+            posts = repository.feedPosts,
+            nextDataIsLoading = true
+        )
+        viewModelScope.launch {
+            repository.loadNextData() <--------------------------
+        }
+        
+    }
+	
+	Далее уберём LiveData<NewsFeedScreenState>
+	
+	
+	class NewsFeedViewModel : ViewModel() {
+
+    private val repository = NewsFeedRepository()
+
+    val repositoryDataFlow = repository.data
+
+    val loadingState = MutableSharedFlow<NewsFeedScreenState>()
+	
+    val screenState = repositoryDataFlow
+        .filter { posts -> posts.isNotEmpty() }
+        .map {
+            NewsFeedScreenState.Posts(posts = it) as NewsFeedScreenState
+        }
+        .onStart { emit(NewsFeedScreenState.Loading) }
+        .mergeWith(loadingState)
+
+
+    fun <T> Flow<T>.mergeWith(other : Flow<T>) : Flow<T> {
+        return merge(this, other)
+    }
+    fun loadNextData() {
+       
+        viewModelScope.launch {
+            loadingState.emit(
+                NewsFeedScreenState.Posts(
+                    posts = repositoryDataFlow.value,
+                    nextDataIsLoading = true
+                )
+            ) 
+            repository.loadNextData()
+        }
+
+    }
+	.............
+	
+	При такой реализации вот тут будут ошибки
+	
+	 fun changeLikeStatus(feedPost: FeedPost) {
+        viewModelScope.launch {
+            if (feedPost.isLiked) {
+                repository.deleteLike(feedPost = feedPost)
+            } else {
+                repository.addLike(feedPost = feedPost)
+            }
+            _screenState.postValue(NewsFeedScreenState.Posts(posts = repository.feedPosts)) <<--------------------
+        }
+    }
+
+
+    fun deleteItem(feedPost: FeedPost) {
+        val currentState = screenState.value
+        if (currentState !is NewsFeedScreenState.Posts) {
+            return
+        }
+        viewModelScope.launch {
+            repository.deletePost(feedPost = feedPost)
+            _screenState.value = NewsFeedScreenState.Posts(repository.feedPosts) <<--------------------
+        }
+    }
+	
+	Реализуем обновление данных в репозитории
+	
+	Добавим
+	
+	private val refreshDataEvents = MutableSharedFlow<List<FeedPost>>()
+		
+		На примере deletePost:
+		
+	suspend fun deletePost(feedPost: FeedPost)  {
+        apiService.ignoreItem(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+        )
+        _feedPosts.remove(feedPost)
+        refreshDataEvents.emit(feedPosts) <----
+
+    }
+	
+И примёрджим к основному стейту
+
+
+val data: StateFlow<List<FeedPost>> = flow{
+        nextDataNeededEvents.emit(Unit)
+        nextDataNeededEvents.collect {
+            val startFrom = nextFrom
+            if (startFrom == null && feedPosts.isNotEmpty()) {
+                emit(feedPosts)
+                return@collect
+            }
+            val response = if (startFrom == null) {
+                apiService.loadNewsfeed(getAccessToken())
+            } else {
+                apiService.loadNewsfeed(getAccessToken(), startFrom = startFrom)
+            }
+            nextFrom = response.newsFeedContent.nextFrom
+            val posts = mapper.mapResponseToPosts(response)
+            _feedPosts.addAll(posts)
+            emit(feedPosts)
+        }
+
+    }.mergeWith(refreshDataEvents) <<-------------------------------------------------- вот тут
+        .stateIn(
+        scope = coroutineScope,
+        started = SharingStarted.Lazily,
+        initialValue = feedPosts
+        )
+		
+		Немного отрефакторим
+		
+		
+Осталась одна доработка:
+
+@Composable
+fun NewsFeedScreen(
+    paddingValues : PaddingValues,
+    onCommentsClickListener: (FeedPost) -> Unit
+){
+
+    val viewModel : NewsFeedViewModel = viewModel()
+    val screenState = viewModel.screenState.observeAsState(NewsFeedScreenState.Initial) 
+	------------------------------------------------------------------------------------->>> меняем на 
+	 val screenState = viewModel.screenState.collectAsState(NewsFeedScreenState.Initial)
