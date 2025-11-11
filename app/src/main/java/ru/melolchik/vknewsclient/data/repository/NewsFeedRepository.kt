@@ -19,6 +19,7 @@ import ru.melolchik.vknewsclient.domain.PostComment
 import ru.melolchik.vknewsclient.domain.StatisticItem
 import ru.melolchik.vknewsclient.domain.StatisticType
 import ru.melolchik.vknewsclient.extension.mergeWith
+import ru.melolchik.vknewsclient.domain.AuthState
 
 class NewsFeedRepository {
 
@@ -40,7 +41,25 @@ class NewsFeedRepository {
     val feedPosts: List<FeedPost>
         get() = _feedPosts.toList()
 
+    private val checkAuthStateFlow = MutableSharedFlow<Unit>( replay = 1)
 
+
+    val authStateFlow = flow {
+        checkAuthStateFlow.emit(Unit)
+        checkAuthStateFlow.collect {
+            val authState = if(VKID.instance.accessToken != null) AuthState.Authorized else AuthState.NotAuthorized
+            emit(authState)
+        }
+
+    }.stateIn(
+        scope = coroutineScope,
+        started = SharingStarted.Lazily,
+        initialValue = feedPosts
+    )
+
+    suspend fun checkAuthState(){
+        checkAuthStateFlow.emit(Unit)
+    }
     val loadedListFlow = flow {
         nextDataNeededEvents.emit(Unit)
         nextDataNeededEvents.collect {

@@ -13,30 +13,33 @@ import com.vk.id.auth.VKIDAuthCallback
 import com.vk.id.auth.VKIDAuthParams
 import com.vk.id.auth.VKIDAuthUiParams
 import kotlinx.coroutines.launch
+import ru.melolchik.vknewsclient.data.repository.NewsFeedRepository
 
 class MainViewModel(application: Application) : AndroidViewModel(application = application) {
 
-    private val _authSate  = MutableLiveData<AuthState>(AuthState.Initial)
+    private val repository = NewsFeedRepository()
 
-    val authState : LiveData<AuthState> = _authSate
+    val authState = repository.authStateFlow
 
-    init {
-        _authSate.value = if(VKID.instance.accessToken != null) AuthState.Authorized else AuthState.NotAuthorized
-    }
-
-    fun login(){
+   fun login(){
         Log.d("MainViewModel", "login")
         viewModelScope.launch {
             val vkAuthCallback = object : VKIDAuthCallback {
                 override fun onAuth(accessToken: AccessToken) {
                     val token = accessToken.token
                     Log.d("MainViewModel", "Success token = $token")
-                    _authSate.postValue(AuthState.Authorized)
+                    viewModelScope.launch {
+                        repository.checkAuthState()
+                    }
+
                 }
 
                 override fun onFail(fail: VKIDAuthFail) {
 
                     Log.d("MainViewModel", "VKIDAuthFail = $fail")
+                    viewModelScope.launch {
+                        repository.checkAuthState()
+                    }
                     when (fail) {
                         is VKIDAuthFail.Canceled -> { /*...*/
 

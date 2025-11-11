@@ -4351,3 +4351,79 @@ fun NewsFeedScreen(
             started = SharingStarted.Lazily,
             initialValue = listOf()
         )
+		
+#9.3 Coroutine Flow in MainViewModel
+
+Уберём LiveData в MainViewModel
+
+Добавляем в репозиторий работу с AuthState
+
+ val checkAuthStateFlow = MutableSharedFlow<Unit>( replay = 1)
+
+
+    val authStateFlow = flow {
+        checkAuthStateFlow.emit(Unit)
+        checkAuthStateFlow.collect {
+            val authState = if(VKID.instance.accessToken != null) AuthState.Authorized else AuthState.NotAuthorized
+            emit(authState)
+        }
+
+    }.stateIn(
+        scope = coroutineScope,
+        started = SharingStarted.Lazily,
+        initialValue = feedPosts
+    )
+
+    suspend fun checkAuthState(){
+        checkAuthStateFlow.emit(Unit)
+    }
+	
+	
+class MainViewModel(application: Application) : AndroidViewModel(application = application) {
+
+    private val repository = NewsFeedRepository()
+
+    val authState = repository.authStateFlow
+    
+   fun login(){
+        Log.d("MainViewModel", "login")
+        viewModelScope.launch {
+            val vkAuthCallback = object : VKIDAuthCallback {
+                override fun onAuth(accessToken: AccessToken) {
+                    val token = accessToken.token
+                    Log.d("MainViewModel", "Success token = $token")
+                    viewModelScope.launch {
+                        repository.checkAuthState()
+                    }
+                   
+                }
+
+                override fun onFail(fail: VKIDAuthFail) {
+
+                    Log.d("MainViewModel", "VKIDAuthFail = $fail")
+                    viewModelScope.launch {
+                        repository.checkAuthState()
+                    }
+                    when (fail) {
+                        is VKIDAuthFail.Canceled -> { /*...*/
+
+                        }
+
+                        else -> {
+                            //...
+                        }
+                    }
+                }
+            }
+
+            val initializer = VKIDAuthParams.Builder().apply {
+                scopes = setOf("wall","friends")
+
+            }.build()
+
+            VKID.instance.authorize(callback =  vkAuthCallback,
+                params = initializer)
+        }
+    }
+
+}
