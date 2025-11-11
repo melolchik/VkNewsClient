@@ -4,6 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
@@ -18,6 +19,11 @@ import ru.melolchik.vknewsclient.extension.mergeWith
 
 class NewsFeedViewModel : ViewModel() {
 
+
+    val exceptionHandler = CoroutineExceptionHandler { _, _, ->
+        ///log
+
+    }
     private val repository = NewsFeedRepository()
 
     val repositoryDataFlow = repository.data
@@ -48,27 +54,27 @@ class NewsFeedViewModel : ViewModel() {
     }
 
     fun changeLikeStatus(feedPost: FeedPost) {
-        viewModelScope.launch {
-            if (feedPost.isLiked) {
-                repository.deleteLike(feedPost = feedPost)
-            } else {
-                repository.addLike(feedPost = feedPost)
-            }
+    viewModelScope.launch(exceptionHandler) {
+        if (feedPost.isLiked) {
+            repository.deleteLike(feedPost = feedPost)
+        } else {
+            repository.addLike(feedPost = feedPost)
         }
     }
+}
 
 
-    private fun List<FeedPost>.getItemById(id: Long): FeedPost {
-        return this.find { it.id == id }
-            ?: throw IllegalArgumentException("FeedPost with id = $id not found!")
+private fun List<FeedPost>.getItemById(id: Long): FeedPost {
+    return this.find { it.id == id }
+        ?: throw IllegalArgumentException("FeedPost with id = $id not found!")
+}
+
+fun deleteItem(feedPost: FeedPost) {
+
+    viewModelScope.launch(exceptionHandler) {
+        repository.deletePost(feedPost = feedPost)
     }
-
-    fun deleteItem(feedPost: FeedPost) {
-
-        viewModelScope.launch {
-            repository.deletePost(feedPost = feedPost)
-        }
-    }
+}
 
 
 }

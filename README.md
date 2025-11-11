@@ -4209,3 +4209,145 @@ fun NewsFeedScreen(
     val screenState = viewModel.screenState.observeAsState(NewsFeedScreenState.Initial) 
 	------------------------------------------------------------------------------------->>> меняем на 
 	 val screenState = viewModel.screenState.collectAsState(NewsFeedScreenState.Initial)
+	 
+	 
+#9.2 Exception handling in VkNewsClient
+
+Отключим интернет и поработаем с ошибками
+При появлении интернета данные должны подгрузиться. Поставим retry
+
+ val loadedListFlow = flow{
+        nextDataNeededEvents.emit(Unit)
+        nextDataNeededEvents.collect {
+            val startFrom = nextFrom
+            if (startFrom == null && feedPosts.isNotEmpty()) {
+                emit(feedPosts)
+                return@collect
+            }
+            val response = if (startFrom == null) {
+                apiService.loadNewsfeed(getAccessToken())
+            } else {
+                apiService.loadNewsfeed(getAccessToken(), startFrom = startFrom)
+            }
+            nextFrom = response.newsFeedContent.nextFrom
+            val posts = mapper.mapResponseToPosts(response)
+            _feedPosts.addAll(posts)
+            emit(feedPosts)
+        }
+    }
+    .retry { true } <---- true повторение запроса, не зависимо от ошибки
+
+	
+	----
+	
+	.retry {
+        delay(RETRY_TIMEOUT_MILLIS)  <---- true повторение запроса c задержкой , RETRY_TIMEOUT_MILLIS - наша переменная
+        true }
+		
+	----
+
+	.retry (2){ <---- ограничить кол-во попыток: одна неудачная загрузка + 2 попытки
+        delay(RETRY_TIMEOUT_MILLIS)  
+        true }	
+		
+	Далее добавляем catch - который обрабаотывает ошибкт
+	
+	Блок catch и retry добавляют только к холодным flow. Добавлять его в горячий flow бессмыссленно, т.к. он никогда не завершается.
+	
+	
+	Поэтому можно в репозтории т=использовать стейт Error и возвращать его во ViewModel
+	
+	Тепепрь посмотрим на функцию 
+	
+	  suspend fun deletePost(feedPost: FeedPost) {
+        apiService.ignoreItem(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+        )
+        _feedPosts.remove(feedPost)
+        refreshDataEvents.emit(feedPosts)
+
+    }
+	1) вариант обработки ошибок try..catch 
+	
+	 suspend fun deletePost(feedPost: FeedPost) {
+	 try{
+        apiService.ignoreItem(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+        )
+        _feedPosts.remove(feedPost)
+        refreshDataEvents.emit(feedPosts)
+
+	}catch (ex : Exception){
+	
+	....................... обработка здесь 
+    }
+	
+	2) вариани через ExceptionHandler
+	
+	
+	class NewsFeedViewModel : ViewModel() {
+
+    
+    val exceptionHandler = CoroutineExceptionHandler { _, _, ->
+        ///log
+        
+    }
+	
+	....................
+	
+	fun changeLikeStatus(feedPost: FeedPost) {
+        viewModelScope.launch(exceptionHandler) { <---------------------- передаём в корутину
+            if (feedPost.isLiked) {
+                repository.deleteLike(feedPost = feedPost)
+            } else {
+                repository.addLike(feedPost = feedPost)
+            }
+        }
+    }
+
+
+    fun deleteItem(feedPost: FeedPost) {
+
+        viewModelScope.launch(exceptionHandler) {  <---------------------- передаём в корутину
+            repository.deletePost(feedPost = feedPost)
+        }
+    }
+
+}
+
+Поменяем LiveData на экране комментариев
+
+В репозитории:
+
+ suspend fun getComments(feedPost: FeedPost): List<PostComment> {
+        val comments = apiService.getComments(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+        )
+        return mapper.mapResponseToComments(comments)
+    }
+	
+	----------------------------->>>>>>>>
+	
+	
+	fun getCommentsFlow(feedPost: FeedPost): Flow<List<PostComment>> = flow {
+            val comments = apiService.getComments(
+                token = getAccessToken(),
+                ownerId = feedPost.communityId,
+                postId = feedPost.id
+            )
+            emit(mapper.mapResponseToComments(comments))
+        }.retry {
+            delay(RETRY_TIMEOUT_MILLIS)
+            true
+        }
+        .stateIn( <-------------- можно убрать. Т.к. загружаем комментарии один раз
+            scope = coroutineScope,
+            started = SharingStarted.Lazily,
+            initialValue = listOf()
+        )
