@@ -4427,3 +4427,331 @@ class MainViewModel(application: Application) : AndroidViewModel(application = a
     }
 
 }
+
+#9.4 Refactoring. Clean Architecture
+
+В domain создадим пакет entity и перенесём туда все модели
+
+Там же создадим пакет usecases
+И repository. Добавим интерфейс репозитория
+
+interface NewsFeedRepository {
+
+    fun getAuthStateFlow(): StateFlow<AuthState>
+
+    fun getDataListFlow(): StateFlow<List<FeedPost>>
+
+    fun getCommentsFlow(feedPost: FeedPost): Flow<List<PostComment>>
+
+    suspend fun checkAuthState()
+
+    suspend fun loadNextData()
+
+    suspend fun deletePost(feedPost: FeedPost)
+
+    suspend fun changeLikeStatus(feedPost: FeedPost)
+
+
+}
+
+Добиваемся того,чтобы domain слой не от чего не зависел
+
+Теперь добавим юзкейсы
+
+class GetFeedPostsListUseCase(val repository: NewsFeedRepository) {
+    operator fun invoke() : StateFlow<List<FeedPost>> {
+        return repository.getFeedPostsListFlow()
+    }
+}
+
+class GetCommentsUseCase(val repository: NewsFeedRepository) {
+    operator fun invoke(feedPost: FeedPost): Flow<List<PostComment>> {
+        return repository.getCommentsFlow(feedPost = feedPost)
+    }
+}
+
+
+class GetAuthStateFlowUseCase(val repository: NewsFeedRepository) {
+    operator fun invoke(): Flow<AuthState> {
+        return repository.getAuthStateFlow()
+    }
+}
+
+
+class LoadNextDataUseCase(val repository: NewsFeedRepository) {
+    suspend operator fun invoke() {
+        repository.loadNextData()
+    }
+}
+
+class CheckAuthStateUseCase(val repository: NewsFeedRepository) {
+    suspend operator fun invoke() {
+        return repository.checkAuthState()
+    }
+}
+
+class ChangeLikeStatusUseCase(val repository: NewsFeedRepository) {
+    suspend operator fun invoke(feedPost: FeedPost) {
+        return repository.changeLikeStatus(feedPost = feedPost)
+    }
+}
+
+class DeletePostUseCase(val repository: NewsFeedRepository) {
+    suspend operator fun invoke(feedPost: FeedPost) {
+        return repository.deletePost(feedPost = feedPost)
+    }
+}
+
+Domain слой готов
+
+Изменяем реализацию репозитория. Всё что было паблк делаем приватным. Реализуем соотв-е функции, некоторым просто добавляем override
+
+class NewsFeedRepositoryImpl : NewsFeedRepository{
+
+    private val coroutineScope = CoroutineScope(Dispatchers.Default)
+
+    private val nextDataNeededEvents = MutableSharedFlow<Unit>(replay = 1)
+
+    private val refreshDataEvents = MutableSharedFlow<List<FeedPost>>()
+    private val accessToken = VKID.instance.accessToken
+
+    private val apiService = ApiFactory.apiService
+
+    private val mapper = NewsFeedMapper()
+
+    private var nextFrom: String? = null;
+
+    private val _feedPosts = mutableListOf<FeedPost>()
+
+    private val feedPosts: List<FeedPost>
+        get() = _feedPosts.toList()
+
+    private val checkAuthStateFlow = MutableSharedFlow<Unit>( replay = 1)
+
+
+    private val authStateFlow = flow {
+        checkAuthStateFlow.emit(Unit)
+        checkAuthStateFlow.collect {
+            val authState = if(VKID.instance.accessToken != null) AuthState.Authorized else AuthState.NotAuthorized
+            emit(authState)
+        }
+
+    }.stateIn(
+        scope = coroutineScope,
+        started = SharingStarted.Lazily,
+        initialValue = feedPosts
+    )
+
+    override suspend fun checkAuthState(){
+        checkAuthStateFlow.emit(Unit)
+    }
+    private val loadedListFlow = flow {
+        nextDataNeededEvents.emit(Unit)
+        nextDataNeededEvents.collect {
+            val startFrom = nextFrom
+            if (startFrom == null && feedPosts.isNotEmpty()) {
+                emit(feedPosts)
+                return@collect
+            }
+            val response = if (startFrom == null) {
+                apiService.loadNewsfeed(getAccessToken())
+            } else {
+                apiService.loadNewsfeed(getAccessToken(), startFrom = startFrom)
+            }
+            nextFrom = response.newsFeedContent.nextFrom
+            val posts = mapper.mapResponseToPosts(response)
+            _feedPosts.addAll(posts)
+            emit(feedPosts)
+        }
+    }
+        .retry(2) {
+            delay(RETRY_TIMEOUT_MILLIS)
+            true
+        }.catch {
+
+        }
+
+
+    private val data: StateFlow<List<FeedPost>> = loadedListFlow
+        .mergeWith(refreshDataEvents)
+        .stateIn(
+            scope = coroutineScope,
+            started = SharingStarted.Lazily,
+            initialValue = feedPosts
+        )
+
+    override suspend fun loadNextData() {
+        nextDataNeededEvents.emit(Unit)
+    }
+
+    override suspend fun deletePost(feedPost: FeedPost) {
+        apiService.ignoreItem(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+        )
+        _feedPosts.remove(feedPost)
+        refreshDataEvents.emit(feedPosts)
+
+    }
+
+    override suspend fun changeLikeStatus(feedPost: FeedPost) {
+        if(feedPost.isLiked){
+            deleteLike(feedPost = feedPost)
+        }else{
+            addLike(feedPost = feedPost)
+        }
+    }
+
+    override fun getAuthStateFlow(): StateFlow<AuthState>  = authStateFlow as StateFlow<AuthState>
+
+    override fun getFeedPostsListFlow(): StateFlow<List<FeedPost>>  = data
+
+    override fun getCommentsFlow(feedPost: FeedPost): Flow<List<PostComment>> = flow {
+            val comments = apiService.getComments(
+                token = getAccessToken(),
+                ownerId = feedPost.communityId,
+                postId = feedPost.id
+            )
+            emit(mapper.mapResponseToComments(comments))
+        }.retry {
+            delay(RETRY_TIMEOUT_MILLIS)
+            true
+        }
+        .stateIn(
+            scope = coroutineScope,
+            started = SharingStarted.Lazily,
+            initialValue = listOf()
+        )
+
+    private fun getAccessToken(): String {
+        return accessToken?.token ?: throw IllegalStateException("Token is null")
+    }
+
+    suspend fun addLike(feedPost: FeedPost) {
+        val response = apiService.addLike(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+
+        )
+        val newLikesCount = response.likes.count
+        val newStatistics = feedPost.statistics.toMutableList().apply {
+            removeIf { it.type == StatisticType.LIKES }
+            add(StatisticItem(type = StatisticType.LIKES, newLikesCount))
+        }
+
+        val newPost = feedPost.copy(statistics = newStatistics, isLiked = true)
+        val postIndex = _feedPosts.indexOf(feedPost)
+        _feedPosts[postIndex] = newPost
+        refreshDataEvents.emit(feedPosts)
+    }
+
+    suspend fun deleteLike(feedPost: FeedPost) {
+        val response = apiService.deleteLike(
+            token = getAccessToken(),
+            ownerId = feedPost.communityId,
+            postId = feedPost.id
+
+        )
+        val newLikesCount = response.likes.count
+        val newStatistics = feedPost.statistics.toMutableList().apply {
+            removeIf { it.type == StatisticType.LIKES }
+            add(StatisticItem(type = StatisticType.LIKES, newLikesCount))
+        }
+
+        val newPost = feedPost.copy(statistics = newStatistics, isLiked = false)
+        val postIndex = _feedPosts.indexOf(feedPost)
+        _feedPosts[postIndex] = newPost
+        refreshDataEvents.emit(feedPosts)
+    }
+
+
+    companion object {
+        const val RETRY_TIMEOUT_MILLIS = 3000L
+    }
+
+}
+
+Теперь везде , где используем репозитории - используем UseCase-ы
+Пока создание репозитория на presentation слое оставляем как есть
+
+class MainViewModel(application: Application) : AndroidViewModel(application = application) {
+
+    private val repository = NewsFeedRepositoryImpl()
+    
+    private val getAuthStateFlowUseCase = GetAuthStateFlowUseCase(repository = repository)<--------------------
+
+    private val checkAuthStateUseCase = CheckAuthStateUseCase(repository = repository)<--------------------
+
+
+    val authState = getAuthStateFlowUseCase() <--------------------
+
+   fun login(){
+        Log.d("MainViewModel", "login")
+        viewModelScope.launch {
+            val vkAuthCallback = object : VKIDAuthCallback {
+                override fun onAuth(accessToken: AccessToken) {
+                    val token = accessToken.token
+                    Log.d("MainViewModel", "Success token = $token")
+                    viewModelScope.launch {
+                        checkAuthStateUseCase()<--------------------
+
+                    }
+
+                }
+
+                override fun onFail(fail: VKIDAuthFail) {
+
+                    Log.d("MainViewModel", "VKIDAuthFail = $fail")
+                    viewModelScope.launch {
+                        checkAuthStateUseCase()<--------------------
+
+                    }
+                    .........
+                }
+            }
+
+            val initializer = VKIDAuthParams.Builder().apply {
+                scopes = setOf("wall","friends")
+
+            }.build()
+
+            VKID.instance.authorize(callback =  vkAuthCallback,
+                params = initializer)
+        }
+    }
+
+}
+
+
+class NewsFeedViewModel : ViewModel() {
+
+
+    val exceptionHandler = CoroutineExceptionHandler { _, _, ->
+        ///log
+
+    }
+    private val repository = NewsFeedRepositoryImpl()
+
+    private val getFeedPostsListUseCase = GetFeedPostsListUseCase(repository = repository)<--------------------
+    private val loadNextDataUseCase = LoadNextDataUseCase(repository = repository)<--------------------
+    private val changeLikeStatusUseCase = ChangeLikeStatusUseCase(repository = repository)<--------------------
+    private val deletePostUseCase = DeletePostUseCase(repository = repository)<--------------------
+	................
+	}
+	
+class CommentsViewModel(val feedPost: FeedPost) : ViewModel() {
+    val repository = NewsFeedRepositoryImpl()
+
+    private val getCommentsUseCase = GetCommentsUseCase(repository = repository)<--------------------
+
+    val state = getCommentsUseCase(feedPost = feedPost)<--------------------
+        .map { CommentsScreenState.Comments(feedPost = feedPost, comments = it) as CommentsScreenState }
+        .onStart {
+            emit(CommentsScreenState.Initial)
+        }
+
+
+
+}

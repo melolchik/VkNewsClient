@@ -1,20 +1,21 @@
 package ru.melolchik.vknewsclient.presentation.news
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
-import ru.melolchik.vknewsclient.data.repository.NewsFeedRepository
-import ru.melolchik.vknewsclient.domain.FeedPost
-import ru.melolchik.vknewsclient.domain.StatisticItem
+import ru.melolchik.vknewsclient.data.repository.NewsFeedRepositoryImpl
+import ru.melolchik.vknewsclient.domain.entity.FeedPost
+import ru.melolchik.vknewsclient.domain.usecases.ChangeLikeStatusUseCase
+import ru.melolchik.vknewsclient.domain.usecases.CheckAuthStateUseCase
+import ru.melolchik.vknewsclient.domain.usecases.DeletePostUseCase
+import ru.melolchik.vknewsclient.domain.usecases.GetAuthStateFlowUseCase
+import ru.melolchik.vknewsclient.domain.usecases.GetFeedPostsListUseCase
+import ru.melolchik.vknewsclient.domain.usecases.LoadNextDataUseCase
 import ru.melolchik.vknewsclient.extension.mergeWith
 
 class NewsFeedViewModel : ViewModel() {
@@ -24,9 +25,14 @@ class NewsFeedViewModel : ViewModel() {
         ///log
 
     }
-    private val repository = NewsFeedRepository()
+    private val repository = NewsFeedRepositoryImpl()
 
-    val repositoryDataFlow = repository.data
+    private val getFeedPostsListUseCase = GetFeedPostsListUseCase(repository = repository)
+    private val loadNextDataUseCase = LoadNextDataUseCase(repository = repository)
+    private val changeLikeStatusUseCase = ChangeLikeStatusUseCase(repository = repository)
+    private val deletePostUseCase = DeletePostUseCase(repository = repository)
+
+    val repositoryDataFlow = getFeedPostsListUseCase()
 
     val loadingState = MutableSharedFlow<NewsFeedScreenState>()
     val screenState = repositoryDataFlow
@@ -48,18 +54,14 @@ class NewsFeedViewModel : ViewModel() {
                     nextDataIsLoading = true
                 )
             )
-            repository.loadNextData()
+            loadNextDataUseCase()
         }
 
     }
 
     fun changeLikeStatus(feedPost: FeedPost) {
     viewModelScope.launch(exceptionHandler) {
-        if (feedPost.isLiked) {
-            repository.deleteLike(feedPost = feedPost)
-        } else {
-            repository.addLike(feedPost = feedPost)
-        }
+        changeLikeStatusUseCase(feedPost = feedPost)
     }
 }
 
@@ -72,7 +74,7 @@ private fun List<FeedPost>.getItemById(id: Long): FeedPost {
 fun deleteItem(feedPost: FeedPost) {
 
     viewModelScope.launch(exceptionHandler) {
-        repository.deletePost(feedPost = feedPost)
+        deletePostUseCase(feedPost = feedPost)
     }
 }
 

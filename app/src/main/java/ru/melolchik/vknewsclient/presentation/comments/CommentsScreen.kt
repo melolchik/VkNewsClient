@@ -25,7 +25,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
@@ -35,8 +34,8 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import ru.melolchik.vknewsclient.R
-import ru.melolchik.vknewsclient.domain.FeedPost
-import ru.melolchik.vknewsclient.domain.PostComment
+import ru.melolchik.vknewsclient.domain.entity.FeedPost
+import ru.melolchik.vknewsclient.domain.entity.PostComment
 
 
 @OptIn(ExperimentalMaterial3Api::class)

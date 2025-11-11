@@ -4,8 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.navigation
-import ru.melolchik.vknewsclient.domain.FeedPost
+import ru.melolchik.vknewsclient.domain.entity.FeedPost
 
 @Composable
 fun AppNavGraph(navHostController: NavHostController,

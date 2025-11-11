@@ -1,7 +1,7 @@
 package ru.melolchik.vknewsclient.presentation.comments
 
-import ru.melolchik.vknewsclient.domain.FeedPost
-import ru.melolchik.vknewsclient.domain.PostComment
+import ru.melolchik.vknewsclient.domain.entity.FeedPost
+import ru.melolchik.vknewsclient.domain.entity.PostComment
 
 sealed class CommentsScreenState {
 

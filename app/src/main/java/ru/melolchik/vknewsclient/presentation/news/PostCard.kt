@@ -27,9 +27,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import ru.melolchik.vknewsclient.R
-import ru.melolchik.vknewsclient.domain.FeedPost
-import ru.melolchik.vknewsclient.domain.StatisticItem
-import ru.melolchik.vknewsclient.domain.StatisticType
+import ru.melolchik.vknewsclient.domain.entity.FeedPost
+import ru.melolchik.vknewsclient.domain.entity.StatisticItem
+import ru.melolchik.vknewsclient.domain.entity.StatisticType
 
 
 @Composable

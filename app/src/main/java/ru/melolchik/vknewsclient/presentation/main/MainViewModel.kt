@@ -3,23 +3,25 @@ package ru.melolchik.vknewsclient.presentation.main
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.vk.id.AccessToken
 import com.vk.id.VKID
 import com.vk.id.VKIDAuthFail
 import com.vk.id.auth.VKIDAuthCallback
 import com.vk.id.auth.VKIDAuthParams
-import com.vk.id.auth.VKIDAuthUiParams
 import kotlinx.coroutines.launch
-import ru.melolchik.vknewsclient.data.repository.NewsFeedRepository
+import ru.melolchik.vknewsclient.data.repository.NewsFeedRepositoryImpl
+import ru.melolchik.vknewsclient.domain.usecases.CheckAuthStateUseCase
+import ru.melolchik.vknewsclient.domain.usecases.GetAuthStateFlowUseCase
 
 class MainViewModel(application: Application) : AndroidViewModel(application = application) {
 
-    private val repository = NewsFeedRepository()
+    private val repository = NewsFeedRepositoryImpl()
 
-    val authState = repository.authStateFlow
+    private val getAuthStateFlowUseCase = GetAuthStateFlowUseCase(repository = repository)
+    private val checkAuthStateUseCase = CheckAuthStateUseCase(repository = repository)
+
+    val authState = getAuthStateFlowUseCase()
 
    fun login(){
         Log.d("MainViewModel", "login")
@@ -29,7 +31,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application = a
                     val token = accessToken.token
                     Log.d("MainViewModel", "Success token = $token")
                     viewModelScope.launch {
-                        repository.checkAuthState()
+                        checkAuthStateUseCase()
                     }
 
                 }
@@ -38,7 +40,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application = a
 
                     Log.d("MainViewModel", "VKIDAuthFail = $fail")
                     viewModelScope.launch {
-                        repository.checkAuthState()
+                        checkAuthStateUseCase()
                     }
                     when (fail) {
                         is VKIDAuthFail.Canceled -> { /*...*/

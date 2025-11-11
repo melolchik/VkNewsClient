@@ -1,4 +1,4 @@
-package ru.melolchik.vknewsclient.domain
+package ru.melolchik.vknewsclient.domain.entity
 
 sealed class AuthState {
     object Initial : AuthState()

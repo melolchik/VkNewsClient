@@ -1,12 +1,11 @@
 package ru.melolchik.vknewsclient.data.mapper
 
-import ru.melolchik.vknewsclient.data.model.comments.CommentsContentDto
 import ru.melolchik.vknewsclient.data.model.comments.CommentsResponseDto
 import ru.melolchik.vknewsclient.data.model.news.NewsFeedResponseDto
-import ru.melolchik.vknewsclient.domain.FeedPost
-import ru.melolchik.vknewsclient.domain.PostComment
-import ru.melolchik.vknewsclient.domain.StatisticItem
-import ru.melolchik.vknewsclient.domain.StatisticType
+import ru.melolchik.vknewsclient.domain.entity.FeedPost
+import ru.melolchik.vknewsclient.domain.entity.PostComment
+import ru.melolchik.vknewsclient.domain.entity.StatisticItem
+import ru.melolchik.vknewsclient.domain.entity.StatisticType
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

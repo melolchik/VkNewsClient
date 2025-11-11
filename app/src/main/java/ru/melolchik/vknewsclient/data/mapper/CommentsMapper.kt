@@ -1,7 +1,7 @@
 package ru.melolchik.vknewsclient.data.mapper
 
 import ru.melolchik.vknewsclient.data.model.comments.CommentsContentDto
-import ru.melolchik.vknewsclient.domain.PostComment
+import ru.melolchik.vknewsclient.domain.entity.PostComment
 
 class CommentsMapper {
 

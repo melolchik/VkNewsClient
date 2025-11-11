@@ -1,6 +1,6 @@
 package ru.melolchik.vknewsclient.presentation.news
 
-import ru.melolchik.vknewsclient.domain.FeedPost
+import ru.melolchik.vknewsclient.domain.entity.FeedPost
 
 sealed class NewsFeedScreenState {
 

@@ -2,7 +2,7 @@ package ru.melolchik.vknewsclient.presentation.comments
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import ru.melolchik.vknewsclient.domain.FeedPost
+import ru.melolchik.vknewsclient.domain.entity.FeedPost
 
 class CommentsViewModalFactory(private val feedPost: FeedPost) : ViewModelProvider.Factory{
 

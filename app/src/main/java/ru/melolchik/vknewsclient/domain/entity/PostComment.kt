@@ -1,6 +1,4 @@
-package ru.melolchik.vknewsclient.domain
-
-import ru.melolchik.vknewsclient.R
+package ru.melolchik.vknewsclient.domain.entity
 
 data class PostComment(
     val id: Long,

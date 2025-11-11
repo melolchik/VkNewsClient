@@ -1,4 +1,4 @@
-package ru.melolchik.vknewsclient.domain
+package ru.melolchik.vknewsclient.domain.entity
 
 import android.os.Bundle
 import android.os.Parcelable

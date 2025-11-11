@@ -14,14 +14,15 @@ import kotlinx.coroutines.flow.retry
 import kotlinx.coroutines.flow.stateIn
 import ru.melolchik.vknewsclient.data.mapper.NewsFeedMapper
 import ru.melolchik.vknewsclient.data.network.ApiFactory
-import ru.melolchik.vknewsclient.domain.FeedPost
-import ru.melolchik.vknewsclient.domain.PostComment
-import ru.melolchik.vknewsclient.domain.StatisticItem
-import ru.melolchik.vknewsclient.domain.StatisticType
+import ru.melolchik.vknewsclient.domain.entity.FeedPost
+import ru.melolchik.vknewsclient.domain.entity.PostComment
+import ru.melolchik.vknewsclient.domain.entity.StatisticItem
+import ru.melolchik.vknewsclient.domain.entity.StatisticType
 import ru.melolchik.vknewsclient.extension.mergeWith
-import ru.melolchik.vknewsclient.domain.AuthState
+import ru.melolchik.vknewsclient.domain.entity.AuthState
+import ru.melolchik.vknewsclient.domain.repository.NewsFeedRepository
 
-class NewsFeedRepository {
+class NewsFeedRepositoryImpl : NewsFeedRepository{
 
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
 
@@ -38,13 +39,13 @@ class NewsFeedRepository {
 
     private val _feedPosts = mutableListOf<FeedPost>()
 
-    val feedPosts: List<FeedPost>
+    private val feedPosts: List<FeedPost>
         get() = _feedPosts.toList()
 
     private val checkAuthStateFlow = MutableSharedFlow<Unit>( replay = 1)
 
 
-    val authStateFlow = flow {
+    private val authStateFlow = flow {
         checkAuthStateFlow.emit(Unit)
         checkAuthStateFlow.collect {
             val authState = if(VKID.instance.accessToken != null) AuthState.Authorized else AuthState.NotAuthorized
@@ -57,10 +58,10 @@ class NewsFeedRepository {
         initialValue = feedPosts
     )
 
-    suspend fun checkAuthState(){
+    override suspend fun checkAuthState(){
         checkAuthStateFlow.emit(Unit)
     }
-    val loadedListFlow = flow {
+    private val loadedListFlow = flow {
         nextDataNeededEvents.emit(Unit)
         nextDataNeededEvents.collect {
             val startFrom = nextFrom
@@ -87,7 +88,7 @@ class NewsFeedRepository {
         }
 
 
-    val data: StateFlow<List<FeedPost>> = loadedListFlow
+    private val data: StateFlow<List<FeedPost>> = loadedListFlow
         .mergeWith(refreshDataEvents)
         .stateIn(
             scope = coroutineScope,
@@ -95,11 +96,11 @@ class NewsFeedRepository {
             initialValue = feedPosts
         )
 
-    suspend fun loadNextData() {
+    override suspend fun loadNextData() {
         nextDataNeededEvents.emit(Unit)
     }
 
-    suspend fun deletePost(feedPost: FeedPost) {
+    override suspend fun deletePost(feedPost: FeedPost) {
         apiService.ignoreItem(
             token = getAccessToken(),
             ownerId = feedPost.communityId,
@@ -110,7 +111,19 @@ class NewsFeedRepository {
 
     }
 
-    fun getCommentsFlow(feedPost: FeedPost): Flow<List<PostComment>> = flow {
+    override suspend fun changeLikeStatus(feedPost: FeedPost) {
+        if(feedPost.isLiked){
+            deleteLike(feedPost = feedPost)
+        }else{
+            addLike(feedPost = feedPost)
+        }
+    }
+
+    override fun getAuthStateFlow(): StateFlow<AuthState>  = authStateFlow as StateFlow<AuthState>
+
+    override fun getFeedPostsListFlow(): StateFlow<List<FeedPost>>  = data
+
+    override fun getCommentsFlow(feedPost: FeedPost): Flow<List<PostComment>> = flow {
             val comments = apiService.getComments(
                 token = getAccessToken(),
                 ownerId = feedPost.communityId,
