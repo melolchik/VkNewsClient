@@ -30,29 +30,23 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.melolchik.vknewsclient.App
 import ru.melolchik.vknewsclient.domain.entity.AuthState
+import ru.melolchik.vknewsclient.getApplicationComponent
 import ru.melolchik.vknewsclient.presentation.ViewModelFactory
 import ru.melolchik.vknewsclient.ui.theme.VkNewsClientTheme
 import javax.inject.Inject
 
 class MainActivity : ComponentActivity() {
-
-    private val component by lazy{
-        (application as App).component
-    }
-
-    @Inject
-    lateinit var viewModelFactory : ViewModelFactory
-
     override fun onCreate(savedInstanceState: Bundle?) {
-        component.inject(this)
+
         super.onCreate(savedInstanceState)
 
         setContent {
+            val component = getApplicationComponent()
+            val viewModel: MainViewModel = viewModel(factory = component.getViewModelFactory())
+            val authState = viewModel.authState.collectAsState(AuthState.Initial)
             VkNewsClientTheme {
-                val viewModel: MainViewModel = viewModel(factory = viewModelFactory)
-                val authState = viewModel.authState.collectAsState(AuthState.Initial)
                 when (authState.value) {
-                    AuthState.Authorized -> MainScreen(viewModelFactory)
+                    AuthState.Authorized -> MainScreen()
                     AuthState.NotAuthorized -> LoginScreen { viewModel.login() }
                     else -> {}
                 }

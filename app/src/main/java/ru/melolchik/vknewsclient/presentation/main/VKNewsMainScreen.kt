@@ -34,7 +34,7 @@ fun log(text: String) {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun MainScreen(factory : ViewModelFactory) {
+fun MainScreen() {
 
     val navigationState = rememberNavigateState()
 
@@ -82,15 +82,13 @@ fun MainScreen(factory : ViewModelFactory) {
         AppNavGraph(
             navHostController = navigationState.navHostController,
             newsFeedScreenContent = {
-                NewsFeedScreen(factory = factory
-                    ,paddingValues = paddingValues) { feedPost ->
+                NewsFeedScreen(paddingValues = paddingValues) { feedPost ->
                     navigationState.navigateToComment(feedPost)
                 }
 
             },
             commentsScreenContent = { feedPost ->
                 CommentsScreen(
-                    factory = factory,
                     onBackPressed = {
                         navigationState.navHostController.popBackStack()
                     },

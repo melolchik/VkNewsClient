@@ -5168,3 +5168,296 @@ class ViewModelFactory @Inject constructor(
     }
 }
 			
+			
+#9.7 Immutable and recomposition
+
+Реализуем возможность получать component при помощи Composable-функции и использовать везде в приложении
+
+В файле App не классе создаём функцию
+
+
+@Composable
+fun getApplicationComponent() : ApplicationComponent{
+    return (LocalContext.current.applicationContext as App).component    
+}
+
+И далее везде её используем ------>>>
+
+
+@Composable
+fun CommentsScreen(
+    onBackPressed: () -> Unit,
+    feedPost: FeedPost
+) {
+
+    val component = getApplicationComponent().getCommentsScreenComponentFactory() <----------------
+        .create(
+            feedPost = feedPost
+        )
+    val viewModel: CommentsViewModel = viewModel(
+        factory = component.getViewModelFactory()
+    )
+................
+
+class MainActivity : ComponentActivity() {
+
+    private val component by lazy{ <<<---------remove
+        (application as App).component
+    }
+
+    @Inject
+    lateinit var viewModelFactory : ViewModelFactory <<<---------remove
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        component.inject(this)<<<---------remove
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            VkNewsClientTheme {
+                val viewModel: MainViewModel = viewModel(factory = viewModelFactory)
+----------------------------->>>>>>>>>>>>>>>>>>> меняем на 
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            VkNewsClientTheme {
+                val component = getApplicationComponent() <<<---------add
+                val viewModel: MainViewModel = viewModel(factory = component.getViewModelFactory()) <<<---------add
+                val authState = viewModel.authState.collectAsState(AuthState.Initial)
+                when (authState.value) {
+                    AuthState.Authorized -> MainScreen()<<<---------remove factory
+                    AuthState.NotAuthorized -> LoginScreen { viewModel.login() }
+                    else -> {}
+                }
+            }
+        }
+    }
+	
+	И т.д.
+	
+Далее Посмотрим 
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            VkNewsClientTheme {
+                val component = getApplicationComponent()
+                val viewModel: MainViewModel = viewModel(factory = component.getViewModelFactory())
+                val authState = viewModel.authState.collectAsState(AuthState.Initial)
+                when (authState.value) {
+                    AuthState.Authorized -> MainScreen()
+                    AuthState.NotAuthorized -> LoginScreen { viewModel.login() }
+                    else -> {}
+                }
+            }
+        }
+    }
+	
+	При смене стейта происходит рекомпозиция. И component, viewModel authState создаются каждый раз занова. Их можно вынести из Composable-функции
+	
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            val component = getApplicationComponent() <<<<<----вынесли из VkNewsClientTheme
+            val viewModel: MainViewModel = viewModel(factory = component.getViewModelFactory())<<<<<----вынесли из VkNewsClientTheme
+            val authState = viewModel.authState.collectAsState(AuthState.Initial)<<<<<----вынесли из VkNewsClientTheme
+            VkNewsClientTheme {
+                when (authState.value) {
+                    AuthState.Authorized -> MainScreen()
+                    AuthState.NotAuthorized -> LoginScreen { viewModel.login() }
+                    else -> {}
+                }
+            }
+        }
+    }
+	
+Также меняем
+	
+fun NewsFeedScreen(
+    paddingValues: PaddingValues,
+    onCommentsClickListener: (FeedPost) -> Unit
+) {
+
+    val component = getApplicationComponent()
+    val viewModel: NewsFeedViewModel = viewModel(factory = component.getViewModelFactory())
+    val screenState = viewModel.screenState.collectAsState(NewsFeedScreenState.Initial)
+
+    when (val currentState = screenState.value) {
+        is NewsFeedScreenState.Posts -> {
+            FeedPosts(
+                posts = currentState.posts, viewModel = viewModel,
+                paddingValues = paddingValues,
+                onCommentsClickListener = onCommentsClickListener,
+                nextDataIsLoading = currentState.nextDataIsLoading
+            )
+        }
+
+        NewsFeedScreenState.Initial -> {
+
+        }
+
+        NewsFeedScreenState.Loading -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = DarkBlue)
+            }
+        }
+    }
+}
+
+--------------------------------->>>>>>>>>>>>>>>>>>>>>
+
+
+@Composable
+fun NewsFeedScreen(
+    paddingValues: PaddingValues,
+    onCommentsClickListener: (FeedPost) -> Unit
+) {
+
+    val component = getApplicationComponent()
+    val viewModel: NewsFeedViewModel = viewModel(factory = component.getViewModelFactory())
+    val screenState = viewModel.screenState.collectAsState(NewsFeedScreenState.Initial) <--------------state получаем здесь
+    NewsFeedScreenContent( <<<--- рекомпозиция только здесь
+        screenState = screenState,
+        paddingValues = paddingValues,
+        onCommentsClickListener = onCommentsClickListener,
+        viewModel = viewModel
+    )
+   
+
+
+}
+
+@Composable
+private fun NewsFeedScreenContent(screenState : State<NewsFeedScreenState>,
+                                  paddingValues: PaddingValues,
+                                  onCommentsClickListener: (FeedPost) -> Unit,
+                                  viewModel: NewsFeedViewModel){
+    when (val currentState = screenState.value) { <----------------- Но value получаем только внутри этой функции. Поэтому при рекомпозиции меняется только она
+        is NewsFeedScreenState.Posts -> {
+            FeedPosts(
+                posts = currentState.posts, viewModel = viewModel,
+                paddingValues = paddingValues,
+                onCommentsClickListener = onCommentsClickListener,
+                nextDataIsLoading = currentState.nextDataIsLoading
+            )
+        }
+
+        NewsFeedScreenState.Initial -> {
+
+        }
+
+        NewsFeedScreenState.Loading -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = DarkBlue)
+            }
+        }
+    }
+}
+
+
+CommentScreen поменяем также
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CommentsScreen(
+    onBackPressed: () -> Unit,
+    feedPost: FeedPost
+) {
+
+    val component = getApplicationComponent().getCommentsScreenComponentFactory()
+        .create(
+            feedPost = feedPost
+        )
+    val viewModel: CommentsViewModel = viewModel(
+        factory = component.getViewModelFactory()
+    )
+
+    val screenState = viewModel.state.collectAsState(initial = CommentsScreenState.Initial)
+    
+    CommentsScreenContent(screenState, onBackPressed)
+    
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CommentsScreenContent(screenState : State<CommentsScreenState>,
+                          onBackPressed: () -> Unit){
+    val currentState = screenState.value
+
+    val viewModelCurrentState = LocalViewModelStoreOwner.current?.viewModelStore
+    if (currentState is CommentsScreenState.Comments) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(text = stringResource(R.string.title_comments_screen))
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            viewModelCurrentState?.clear()
+                            onBackPressed()
+                        }) {
+                            Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = null)
+
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
+            LazyColumn(
+                modifier = Modifier.padding(paddingValues),
+                contentPadding = PaddingValues(
+                    top = 16.dp,
+                    start = 8.dp,
+                    end = 8.dp,
+                    bottom = 72.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(15.dp)
+            ) {
+                items(currentState.comments, key = { it.id }) {
+                    CommentItem(comment = it)
+                }
+            }
+
+        }
+    }
+}
+
+Далее: Экран комментариев может переживать рекомпозицию , т.к. находится в графе навигации из-за изменения объекта feedPost, хотя он может быть тот же
+FeedPost - это data class = equal проверяется только по первичным полям, но этого недостаточно, поэтому ЕСЛИ КЛАСС ВНУТРИ НЕ ИЗМЕНЯЕТСЯ при одинаковых 
+первичных полях и все поля VAL!!! его обозначают аннотацияей @Immutable
+
+@Immutable <<<-------
+@Parcelize
+data class FeedPost(
+    val id: Long,
+    val communityId : Long,
+    val communityName: String,
+    val publicationDate: String = "14:00",
+    val communityImageUrl: String = "",
+    val contentText: String = "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    val contentImageUrl: String?,
+    val statistics: List<StatisticItem> = listOf(
+        StatisticItem(StatisticType.VIEWS, 234),
+        StatisticItem(StatisticType.COMMENTS, 113),
+        StatisticItem(StatisticType.SHARES, 34),
+        StatisticItem(StatisticType.LIKES, 243)
+    ),
+    val isLiked : Boolean = Random.nextBoolean()
+) : Parcelable{
