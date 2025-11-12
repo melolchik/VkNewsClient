@@ -27,7 +27,6 @@ import ru.melolchik.vknewsclient.navigation.rememberNavigateState
 import ru.melolchik.vknewsclient.presentation.ViewModelFactory
 import ru.melolchik.vknewsclient.presentation.comments.CommentsScreen
 import ru.melolchik.vknewsclient.presentation.news.NewsFeedScreen
-import ru.melolchik.vknewsclient.presentation.main.NavigationItem
 
 fun log(text: String) {
     Log.d("COMPOSE_TEST", text)

@@ -59,7 +59,7 @@ class  NewsFeedRepositoryImpl @Inject constructor(
     }.stateIn(
         scope = coroutineScope,
         started = SharingStarted.Lazily,
-        initialValue = feedPosts
+        initialValue = AuthState.Initial
     )
 
     override suspend fun checkAuthState(){

@@ -4986,3 +4986,185 @@ fun CommentsScreen(
     val viewModel: CommentsViewModel = viewModel(
         factory = factory// CommentsViewModalFactory(feedPost) <--------------- разберём в следующем уроке
     )
+	
+	
+	class App : Application() {
+
+    val component: ApplicationComponent by lazy {
+
+        DaggerApplicationComponent.factory().create( <------------- временное решение
+            this, FeedPost(
+                id = 0,
+                communityId = 0,
+                communityName = "",
+                publicationDate = "",
+                communityImageUrl = "",
+                contentText = "",
+                contentImageUrl = "",
+                statistics = emptyList(),
+                isLiked = true
+            )
+        )
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        VKID.init(this)
+
+
+    }
+}
+
+#9.6 Dependency Injection VkNewsClient Part 2
+
+Раньше FeedPost передавался в фабрике, сейчас нигде не ипользуется
+
+@Composable
+fun CommentsScreen(
+    factory : ViewModelFactory,
+    onBackPressed : () -> Unit,
+    feedPost: FeedPost
+){
+    Log.d("111","feedPost = $feedPost")
+    val viewModel: CommentsViewModel = viewModel(
+        factory = factory// CommentsViewModalFactory(feedPost)
+    )
+......
+
+Будем исправлять при помощи сабкомпонентов
+Component на момент сборки должен содержать все зависимости, которые будет предоставлять.
+
+
+FeedPost нужен для создания CommentsViewMode
+При создании приложения мы не знаем объект FeedPost, поэтому передавать его в компонент нет никакого смысла
+Он  известен только при переходе на экран комментариев и в этот момент мы можем закинуть его в граф зависемостей
+
+
+@Subcomponent
+interface CommentsScreenComponent {
+    
+    @Subcomponent.Factory
+    interface Factory{
+        fun create(
+            @BindsInstance feedPost: FeedPost
+        ): CommentsScreenComponent
+    }
+}
+
+
+@ApplicationScope
+@Component(modules = [DataModule::class, ViewModelModule::class])
+interface ApplicationComponent {
+    
+    fun getCommentsScreenComponentFactory() : CommentsScreenComponent.Factory <---------------
+
+    fun inject(activity: MainActivity)
+
+    @Component.Factory
+    interface ApplicationComponentFactory {
+        fun create(
+            @BindsInstance context: Context,
+            @BindsInstance feedPost: FeedPost
+        ): ApplicationComponent
+    }
+}
+
+Далее
+
+@Module
+interface ViewModelModule { - Здесь мы указали, что все эти модели должны быть собраны в одну коллекцию map на момент компиляции. Но при этом всех параметров для CommentsViewModel
+							---->> на момент компиляции нет. Поэтому использовать CommentsViewModel здесь не будем
+
+    @IntoMap
+    @ViewModelKey(MainViewModel::class)
+    @Binds
+    fun bindMainViewModel(viewModel: MainViewModel) : ViewModel
+
+    @IntoMap
+    @ViewModelKey(NewsFeedViewModel::class)
+    @Binds
+    fun bindNewsFeedViewModel(viewModel: NewsFeedViewModel) : ViewModel
+
+    @IntoMap
+    @ViewModelKey(CommentsViewModel::class) <<<<<<<<<<<<<------------------------ удаляем
+    @Binds
+    fun bindCommentsViewModel(viewModel: CommentsViewModel) : ViewModel
+}
+
+Создаём отдельный модуль
+
+@Module
+interface CommentsViewModelModule {
+
+    @IntoMap
+    @ViewModelKey(CommentsViewModel::class)
+    @Binds
+    fun bindCommentsViewModel(viewModel: CommentsViewModel) : ViewModel
+}
+
+Который передаём в сабкомпонент
+
+
+@Subcomponent(modules = [CommentsViewModelModule::class]) <<<<------------------
+interface CommentsScreenComponent {
+
+    @Subcomponent.Factory
+    interface Factory{
+        fun create(
+            @BindsInstance feedPost: FeedPost
+        ): CommentsScreenComponent
+    }
+}
+
+Далее создаём Subcomponent в CommentsScreen
+
+ LocalContext.current.applicationContext <---------------------- получение контекста
+
+
+@Composable
+fun CommentsScreen(
+    factory: ViewModelFactory,
+    onBackPressed: () -> Unit,
+    feedPost: FeedPost
+) {
+    Log.d("111", "feedPost = $feedPost")
+
+    val component =
+        (LocalContext.current.applicationContext as App).component.getCommentsScreenComponentFactory()
+            .create(
+                feedPost = feedPost
+            )
+			
+	val viewModel: CommentsViewModel = viewModel(
+        factory = component.getViewModelFactory() <------------------смотри ниже
+    )
+	......
+	
+Единственная сложность в Compose не заинжектить переменную в поле, поэтому добавляем функцию getViewModelFactory()
+
+@Subcomponent(modules = [CommentsViewModelModule::class])
+interface CommentsScreenComponent {
+    
+    fun getViewModelFactory() : ViewModelFactory <--------------------
+
+    @Subcomponent.Factory
+    interface Factory{
+        fun create(
+            @BindsInstance feedPost: FeedPost
+        ): CommentsScreenComponent
+    }
+}
+
+При этом 
+
+
+@ApplicationScope <--------------------- нужно убрать, чтобы не создавать один и тот же объект фабрики, а создавать разные
+class ViewModelFactory @Inject constructor(
+    private val viewModelProviders: @JvmSuppressWildcards Map<Class<out ViewModel>, Provider<ViewModel>>
+) : ViewModelProvider.Factory {
+
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        return viewModelProviders[modelClass]?.get() as T
+    }
+}
+			

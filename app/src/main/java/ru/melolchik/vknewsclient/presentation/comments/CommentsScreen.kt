@@ -27,12 +27,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import ru.melolchik.vknewsclient.App
 import ru.melolchik.vknewsclient.R
 import ru.melolchik.vknewsclient.domain.entity.FeedPost
 import ru.melolchik.vknewsclient.domain.entity.PostComment
@@ -42,20 +44,26 @@ import ru.melolchik.vknewsclient.presentation.ViewModelFactory
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommentsScreen(
-    factory : ViewModelFactory,
-    onBackPressed : () -> Unit,
+    factory: ViewModelFactory,
+    onBackPressed: () -> Unit,
     feedPost: FeedPost
-){
-    Log.d("111","feedPost = $feedPost")
+) {
+    Log.d("111", "feedPost = $feedPost")
+
+    val component =
+        (LocalContext.current.applicationContext as App).component.getCommentsScreenComponentFactory()
+            .create(
+                feedPost = feedPost
+            )
     val viewModel: CommentsViewModel = viewModel(
-        factory = factory// CommentsViewModalFactory(feedPost)
+        factory = component.getViewModelFactory()
     )
 
     val screenState = viewModel.state.collectAsState(initial = CommentsScreenState.Initial)
     val currentState = screenState.value
 
     val viewModelCurrentState = LocalViewModelStoreOwner.current?.viewModelStore
-    if(currentState is CommentsScreenState.Comments) {
+    if (currentState is CommentsScreenState.Comments) {
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -94,13 +102,16 @@ fun CommentsScreen(
 }
 
 @Composable
-private fun CommentItem(comment: PostComment){
-    Row(modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 16.dp, vertical = 4.dp)){
+private fun CommentItem(comment: PostComment) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
         AsyncImage(
             model = comment.authorAvatarId,
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier
+                .size(48.dp)
                 .clip(CircleShape),
             contentDescription = null
         )
@@ -109,19 +120,21 @@ private fun CommentItem(comment: PostComment){
             Text(
                 text = "${comment.authorName}",
                 color = MaterialTheme.colorScheme.onPrimary,
-                fontSize = 12.sp)
+                fontSize = 12.sp
+            )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = comment.commentText,
                 color = MaterialTheme.colorScheme.onPrimary,
-                fontSize = 14.sp)
+                fontSize = 14.sp
+            )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = comment.publicationDate,
                 color = MaterialTheme.colorScheme.onSecondary,
-                fontSize = 12.sp)
+                fontSize = 12.sp
+            )
         }
-
 
 
     }

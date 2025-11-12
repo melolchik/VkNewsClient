@@ -10,13 +10,14 @@ import ru.melolchik.vknewsclient.presentation.main.MainActivity
 @Component(modules = [DataModule::class, ViewModelModule::class])
 interface ApplicationComponent {
 
+    fun getCommentsScreenComponentFactory() : CommentsScreenComponent.Factory
+
     fun inject(activity: MainActivity)
 
     @Component.Factory
     interface ApplicationComponentFactory {
         fun create(
-            @BindsInstance context: Context,
-            @BindsInstance feedPost: FeedPost
+            @BindsInstance context: Context
         ): ApplicationComponent
     }
 }
