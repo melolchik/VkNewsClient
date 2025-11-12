@@ -1,5 +1,6 @@
 package ru.melolchik.vknewsclient.data.repository
 
+import com.vk.id.AccessToken
 import com.vk.id.VKID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.retry
 import kotlinx.coroutines.flow.stateIn
 import ru.melolchik.vknewsclient.data.mapper.NewsFeedMapper
 import ru.melolchik.vknewsclient.data.network.ApiFactory
+import ru.melolchik.vknewsclient.data.network.ApiService
 import ru.melolchik.vknewsclient.domain.entity.FeedPost
 import ru.melolchik.vknewsclient.domain.entity.PostComment
 import ru.melolchik.vknewsclient.domain.entity.StatisticItem
@@ -21,19 +23,21 @@ import ru.melolchik.vknewsclient.domain.entity.StatisticType
 import ru.melolchik.vknewsclient.extension.mergeWith
 import ru.melolchik.vknewsclient.domain.entity.AuthState
 import ru.melolchik.vknewsclient.domain.repository.NewsFeedRepository
+import javax.inject.Inject
 
-class NewsFeedRepositoryImpl : NewsFeedRepository{
+class  NewsFeedRepositoryImpl @Inject constructor(
+    private val apiService : ApiService,
+    private val mapper : NewsFeedMapper,
+    private val accessToken : AccessToken?
+
+) : NewsFeedRepository{
 
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
 
     private val nextDataNeededEvents = MutableSharedFlow<Unit>(replay = 1)
 
     private val refreshDataEvents = MutableSharedFlow<List<FeedPost>>()
-    private val accessToken = VKID.instance.accessToken
 
-    private val apiService = ApiFactory.apiService
-
-    private val mapper = NewsFeedMapper()
 
     private var nextFrom: String? = null;
 

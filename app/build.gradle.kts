@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.jetbrainsKotlinAndroid)
     alias(libs.plugins.kotlinParcelize )
+    alias(libs.plugins.jetbrains.kotlin.kapt)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -84,6 +86,10 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10")
     implementation("com.vk:android-sdk-core:4.0.1")
     implementation("com.vk:android-sdk-api:4.0.1")
+    //dagger
+
+    implementation(libs.dagger)
+    implementation(libs.dagger.compiler)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

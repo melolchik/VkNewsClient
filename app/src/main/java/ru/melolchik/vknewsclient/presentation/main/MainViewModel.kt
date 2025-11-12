@@ -1,8 +1,7 @@
 package ru.melolchik.vknewsclient.presentation.main
 
-import android.app.Application
 import android.util.Log
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vk.id.AccessToken
 import com.vk.id.VKID
@@ -10,20 +9,18 @@ import com.vk.id.VKIDAuthFail
 import com.vk.id.auth.VKIDAuthCallback
 import com.vk.id.auth.VKIDAuthParams
 import kotlinx.coroutines.launch
-import ru.melolchik.vknewsclient.data.repository.NewsFeedRepositoryImpl
 import ru.melolchik.vknewsclient.domain.usecases.CheckAuthStateUseCase
 import ru.melolchik.vknewsclient.domain.usecases.GetAuthStateFlowUseCase
+import javax.inject.Inject
 
-class MainViewModel(application: Application) : AndroidViewModel(application = application) {
-
-    private val repository = NewsFeedRepositoryImpl()
-
-    private val getAuthStateFlowUseCase = GetAuthStateFlowUseCase(repository = repository)
-    private val checkAuthStateUseCase = CheckAuthStateUseCase(repository = repository)
+class MainViewModel @Inject constructor(
+    private val getAuthStateFlowUseCase: GetAuthStateFlowUseCase,
+    private val checkAuthStateUseCase: CheckAuthStateUseCase
+) : ViewModel() {
 
     val authState = getAuthStateFlowUseCase()
 
-   fun login(){
+    fun login() {
         Log.d("MainViewModel", "login")
         viewModelScope.launch {
             val vkAuthCallback = object : VKIDAuthCallback {
@@ -55,12 +52,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application = a
             }
 
             val initializer = VKIDAuthParams.Builder().apply {
-                scopes = setOf("wall","friends")
+                scopes = setOf("wall", "friends")
 
             }.build()
 
-            VKID.instance.authorize(callback =  vkAuthCallback,
-                params = initializer)
+            VKID.instance.authorize(
+                callback = vkAuthCallback,
+                params = initializer
+            )
         }
     }
 

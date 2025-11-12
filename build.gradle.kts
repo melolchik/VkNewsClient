@@ -3,5 +3,7 @@ plugins {
     alias(libs.plugins.androidApplication) apply false
     alias(libs.plugins.jetbrainsKotlinAndroid) apply false
     alias(libs.plugins.kotlinParcelize ) apply false
+    alias(libs.plugins.jetbrains.kotlin.kapt) apply false
+    alias(libs.plugins.compose.compiler) apply false
 }
 

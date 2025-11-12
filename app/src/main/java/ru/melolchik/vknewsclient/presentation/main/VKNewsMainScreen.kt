@@ -24,6 +24,7 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.currentBackStackEntryAsState
 import ru.melolchik.vknewsclient.navigation.AppNavGraph
 import ru.melolchik.vknewsclient.navigation.rememberNavigateState
+import ru.melolchik.vknewsclient.presentation.ViewModelFactory
 import ru.melolchik.vknewsclient.presentation.comments.CommentsScreen
 import ru.melolchik.vknewsclient.presentation.news.NewsFeedScreen
 import ru.melolchik.vknewsclient.presentation.main.NavigationItem
@@ -34,7 +35,7 @@ fun log(text: String) {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(factory : ViewModelFactory) {
 
     val navigationState = rememberNavigateState()
 
@@ -82,13 +83,15 @@ fun MainScreen() {
         AppNavGraph(
             navHostController = navigationState.navHostController,
             newsFeedScreenContent = {
-                NewsFeedScreen(paddingValues = paddingValues) { feedPost ->
+                NewsFeedScreen(factory = factory
+                    ,paddingValues = paddingValues) { feedPost ->
                     navigationState.navigateToComment(feedPost)
                 }
 
             },
             commentsScreenContent = { feedPost ->
                 CommentsScreen(
+                    factory = factory,
                     onBackPressed = {
                         navigationState.navHostController.popBackStack()
                     },

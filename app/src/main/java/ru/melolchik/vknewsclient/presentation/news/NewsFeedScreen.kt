@@ -28,15 +28,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.melolchik.vknewsclient.domain.entity.FeedPost
+import ru.melolchik.vknewsclient.presentation.ViewModelFactory
 import ru.melolchik.vknewsclient.ui.theme.DarkBlue
 
 @Composable
 fun NewsFeedScreen(
+    factory : ViewModelFactory,
     paddingValues : PaddingValues,
     onCommentsClickListener: (FeedPost) -> Unit
 ){
 
-    val viewModel : NewsFeedViewModel = viewModel()
+    val viewModel : NewsFeedViewModel = viewModel(factory = factory)
     val screenState = viewModel.screenState.collectAsState(NewsFeedScreenState.Initial)
 
     when(val currentState = screenState.value){

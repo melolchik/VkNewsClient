@@ -4755,3 +4755,154 @@ class CommentsViewModel(val feedPost: FeedPost) : ViewModel() {
 
 
 }
+
+#9.5 Dependency Injection in NewsFeedClient
+
+
+ alias(libs.plugins.jetbrains.kotlin.kapt)
+
+implementation(libs.dagger)
+implementation(libs.dagger.compiler)
+
+..................
+dagger = "2.51.1"
+
+[libraries]
+dagger = { group = "com.google.dagger", name = "dagger", version.ref = "dagger" }
+dagger-compiler = { group = "com.google.dagger", name = "dagger-compiler", version.ref = "dagger" }
+[plugins]
+jetbrains-kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+
+1) Итак, на все классы навесим @Inject constructor, где необходимо
+
+Сначала для всех юзкейсов
+
+Entity не инжектим
+
+Репозиторий будем инжектить внутри модуля
+
+class  NewsFeedRepositoryImpl @Inject constructor() : NewsFeedRepository{
+
+ApiFactory и ApiService не трогаем!
+
+Добавляем в mapper и ViewModel-и
+
+2) Пакет di/ApplicationComponent
+
+@Component
+interface ApplicationComponent {
+
+}
+
+
+@Module
+interface DataModule {
+
+    @Binds
+    fun bindRepository(impl : NewsFeedRepositoryImpl) : NewsFeedRepository
+}
+
+В NewsFeedRepositoryImpl все зависимости выносим в конструктор
+
+
+@Module
+interface DataModule {
+
+    @Binds
+    fun bindRepository(impl: NewsFeedRepositoryImpl): NewsFeedRepository
+    
+    companion object{
+        @Provides
+        fun providesApiService() : ApiService{
+            return ApiFactory.apiService
+        }
+    }
+
+}
+
+
+Добавляем @Scope
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ApplicationScope()
+
+Чтобы было понятно, что время жизни компонентов, помеченных этой аннотацией = времени жизни приложения
+
+@ApplicationScope <-----------------------------
+@Component(modules = [DataModule::class])
+interface ApplicationComponent {
+
+    @Component.Factory
+    interface Factory{
+        fun create(
+            @BindsInstance context : Context
+        ) : ApplicationComponent
+    }
+}
+
+
+@Module
+interface DataModule {
+    @ApplicationScope <-----------------------------
+    @Binds
+    fun bindRepository(impl: NewsFeedRepositoryImpl): NewsFeedRepository
+
+    companion object{
+        @ApplicationScope <-----------------------------
+        @Provides
+        fun providesApiService() : ApiService{
+            return ApiFactory.apiService
+        }
+        @ApplicationScope <-----------------------------
+        @Provides
+        fun vkAccessToken() : AccessToken? {
+            return VKID.instance.accessToken
+        }
+    }
+
+}
+Инициаллизируем в App
+
+class App : Application() {
+
+    val component: ApplicationComponent by lazy {
+        TODO()
+
+    }
+	
+Далее переходим к ViewModel-ям
+
+class ViewModelFactory @Inject constructor(
+    private val viewModelProviders: @JvmSuppressWildcards
+    Map<Class<out ViewModel>, Provider<ViewModel>>
+) : ViewModelProvider.Factory {
+
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        return viewModelProviders[modelClass]?.get() as T
+    }
+}
+
+Аннотация для ключа
+
+
+@MapKey
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ViewModelKey(val value : KClass<out ViewModel>)
+
+
+Новый модуль:
+
+@Module
+interface ViewModelModule {
+
+    @ViewModelKey(MainViewModel::class)
+    @Binds
+    fun bindMainViewModel(viewModel: MainViewModel) : ViewModel
+
+    @ViewModelKey(NewsFeedViewModel::class)
+    @Binds
+    fun bindNewsFeedViewModel(viewModel: NewsFeedViewModel) : ViewModel
+
+    @ViewModelKey(CommentsViewModel::class)
+    @Binds
+    fun bindCommentsViewModel(viewModel: CommentsViewModel) : ViewModel
+}

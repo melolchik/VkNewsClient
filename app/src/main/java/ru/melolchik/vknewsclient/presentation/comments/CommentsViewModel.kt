@@ -8,18 +8,23 @@ import ru.melolchik.vknewsclient.domain.entity.FeedPost
 import ru.melolchik.vknewsclient.domain.usecases.GetCommentsUseCase
 import ru.melolchik.vknewsclient.domain.usecases.GetFeedPostsListUseCase
 import ru.melolchik.vknewsclient.domain.usecases.LoadNextDataUseCase
+import javax.inject.Inject
 
-class CommentsViewModel(val feedPost: FeedPost) : ViewModel() {
-    val repository = NewsFeedRepositoryImpl()
-
-    private val getCommentsUseCase = GetCommentsUseCase(repository = repository)
+class CommentsViewModel @Inject constructor(
+    val feedPost: FeedPost,
+    private val getCommentsUseCase: GetCommentsUseCase
+) : ViewModel() {
 
     val state = getCommentsUseCase(feedPost = feedPost)
-        .map { CommentsScreenState.Comments(feedPost = feedPost, comments = it) as CommentsScreenState }
+        .map {
+            CommentsScreenState.Comments(
+                feedPost = feedPost,
+                comments = it
+            ) as CommentsScreenState
+        }
         .onStart {
             emit(CommentsScreenState.Initial)
         }
-
 
 
 }

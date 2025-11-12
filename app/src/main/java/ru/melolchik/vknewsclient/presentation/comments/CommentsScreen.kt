@@ -36,17 +36,19 @@ import coil.compose.AsyncImage
 import ru.melolchik.vknewsclient.R
 import ru.melolchik.vknewsclient.domain.entity.FeedPost
 import ru.melolchik.vknewsclient.domain.entity.PostComment
+import ru.melolchik.vknewsclient.presentation.ViewModelFactory
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommentsScreen(
+    factory : ViewModelFactory,
     onBackPressed : () -> Unit,
     feedPost: FeedPost
 ){
     Log.d("111","feedPost = $feedPost")
     val viewModel: CommentsViewModel = viewModel(
-        factory = CommentsViewModalFactory(feedPost)
+        factory = factory// CommentsViewModalFactory(feedPost)
     )
 
     val screenState = viewModel.state.collectAsState(initial = CommentsScreenState.Initial)

@@ -13,7 +13,7 @@ data class FeedPost(
     val communityId : Long,
     val communityName: String,
     val publicationDate: String = "14:00",
-    val communityImageUrl: String,
+    val communityImageUrl: String = "",
     val contentText: String = "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     val contentImageUrl: String?,
     val statistics: List<StatisticItem> = listOf(
