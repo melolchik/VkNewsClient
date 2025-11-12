@@ -4762,7 +4762,7 @@ class CommentsViewModel(val feedPost: FeedPost) : ViewModel() {
  alias(libs.plugins.jetbrains.kotlin.kapt)
 
 implementation(libs.dagger)
-implementation(libs.dagger.compiler)
+kapt(libs.dagger.compiler)!!!
 
 ..................
 dagger = "2.51.1"
@@ -4871,6 +4871,7 @@ class App : Application() {
 	
 Далее переходим к ViewModel-ям
 
+@ApplicationScope <---------------
 class ViewModelFactory @Inject constructor(
     private val viewModelProviders: @JvmSuppressWildcards
     Map<Class<out ViewModel>, Provider<ViewModel>>
@@ -4894,15 +4895,94 @@ annotation class ViewModelKey(val value : KClass<out ViewModel>)
 @Module
 interface ViewModelModule {
 
+    @IntoMap
     @ViewModelKey(MainViewModel::class)
     @Binds
     fun bindMainViewModel(viewModel: MainViewModel) : ViewModel
 
+    @IntoMap
     @ViewModelKey(NewsFeedViewModel::class)
     @Binds
     fun bindNewsFeedViewModel(viewModel: NewsFeedViewModel) : ViewModel
 
+    @IntoMap
     @ViewModelKey(CommentsViewModel::class)
     @Binds
     fun bindCommentsViewModel(viewModel: CommentsViewModel) : ViewModel
 }
+
+Теперь нужно доработать каждую ViewModel
+
+class MainViewModel @Inject constructor(
+    private val getAuthStateFlowUseCase: GetAuthStateFlowUseCase,
+    private val checkAuthStateUseCase: CheckAuthStateUseCase
+) : ViewModel() {
+
+    val authState = getAuthStateFlowUseCase()
+.................
+
+class NewsFeedViewModel @Inject constructor(
+    private val getFeedPostsListUseCase : GetFeedPostsListUseCase,
+            private val loadNextDataUseCase :LoadNextDataUseCase,
+            private val changeLikeStatusUseCase : ChangeLikeStatusUseCase,
+            private val deletePostUseCase : DeletePostUseCase,
+): ViewModel() {
+.......................
+
+class CommentsViewModel @Inject constructor(
+    val feedPost: FeedPost, <--------------------------  эту проблему решим позже
+    private val getCommentsUseCase: GetCommentsUseCase
+) : ViewModel() {
+
+
+
+
+Далее
+
+class MainActivity : ComponentActivity() {
+
+    private val component by lazy{ <---------------------
+        (application as App).component
+    }
+
+    @Inject
+    lateinit var viewModelFactory : ViewModelFactory <---------------------
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        component.inject(this) <---------------------  добавим его в ApplicationComponent
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            VkNewsClientTheme {
+                val viewModel: MainViewModel = viewModel(factory = viewModelFactory) <--------------------- добавляем factory
+                val authState = viewModel.authState.collectAsState(AuthState.Initial)
+                when (authState.value) {
+                    AuthState.Authorized -> MainScreen()
+                    AuthState.NotAuthorized -> LoginScreen { viewModel.login() }
+                    else -> {}
+                }
+            }
+        }
+    }
+	
+	
+Далее factory передаём во все функции где используем ViewModel
+
+@Composable
+fun NewsFeedScreen(
+    factory : ViewModelFactory,
+    paddingValues : PaddingValues,
+    onCommentsClickListener: (FeedPost) -> Unit
+){
+...
+
+@Composable
+fun CommentsScreen(
+    factory : ViewModelFactory,
+    onBackPressed : () -> Unit,
+    feedPost: FeedPost
+){
+    Log.d("111","feedPost = $feedPost")
+    val viewModel: CommentsViewModel = viewModel(
+        factory = factory// CommentsViewModalFactory(feedPost) <--------------- разберём в следующем уроке
+    )

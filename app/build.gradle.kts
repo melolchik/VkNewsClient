@@ -89,7 +89,7 @@ dependencies {
     //dagger
 
     implementation(libs.dagger)
-    implementation(libs.dagger.compiler)
+    kapt(libs.dagger.compiler)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
